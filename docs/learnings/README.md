@@ -31,3 +31,4 @@ note and say so — don't delete history silently.
 - [2026-07-13 — P1A Contract PR: `ContainerRuntime` design decisions](2026-07-13-container-runtime-contract.md)
 - [2026-07-13 — `container build` cancellation semantics](2026-07-13-build-cancellation.md)
 - [2026-07-13 — P1A implementation: CLI argv facts + a Subprocess cancellation edge case](2026-07-13-p1a-implementation-notes.md)
+- [2026-07-13 — stats polling cost](2026-07-13-stats-polling-cost.md)
