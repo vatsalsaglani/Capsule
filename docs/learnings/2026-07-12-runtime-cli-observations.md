@@ -153,7 +153,23 @@ output instead of guesses. Machine: macOS 26 (Darwin 25.1.0), Apple silicon.
    - `image list --format json`: full OCI image-config-spec nested under
      `variants[].config` (history, rootfs diff_ids, per-platform digests) —
      confirms finding #2's seeded shape, now with a populated multi-image
-     sample (`alpine`+`nginx`) rather than a guess.
+     sample (`alpine`+`nginx`) rather than a guess. Verbatim capture (this
+     machine, `variants[].config` trimmed with `...` — it's the full OCI
+     image config, not needed to pin the shape used by `ImageSummary`):
+     ```json
+     [{"configuration":{"creationDate":"2026-06-16T00:01:20Z","descriptor":{"digest":"sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b","mediaType":"application/vnd.oci.image.index.v1+json","size":9218},"name":"docker.io/library/alpine:latest"},"id":"28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b","variants":[{"config":{...},"digest":"sha256:e7a1a92a5bfeee40966aea60f0796b0e7917cc35591542701834f03a68fa3d18","platform":{"architecture":"arm64","os":"linux","variant":"v8"},"size":4184689}]},{"configuration":{"creationDate":"2026-06-24T01:22:24Z","descriptor":{"digest":"sha256:ec4ed8b5299e5e90694af7750eb6dffd2627317d30544d056b0371f8082f7bce","mediaType":"application/vnd.oci.image.index.v1+json","size":10229},"name":"docker.io/library/nginx:latest"},"id":"ec4ed8b5299e5e90694af7750eb6dffd2627317d30544d056b0371f8082f7bce","variants":[{"config":{...},"platform":{"architecture":"arm64","os":"linux","variant":"v8"}}]}]
+     ```
+     Confirms `id`/`configuration`/`variants` sit at the top level (siblings,
+     same pattern as containers' top-level `id`+`configuration`+`status`),
+     `configuration.name`/`configuration.descriptor.digest`/
+     `configuration.creationDate` per-image, and `platform` living at
+     `variants[].platform` — the field locations `ImageSummary` decodes
+     against (`Sources/ContainerClient/RuntimeModels.swift`).
+     **Durable fact: the top-level `id` is bare hex (no `sha256:` prefix),
+     while `configuration.descriptor.digest` carries the `sha256:` prefix** —
+     `ImageSummary.id` and `.digest` are the same underlying content hash but
+     not the same string form; never compare them directly or assume one is
+     a substring of the other without stripping the prefix first.
 
 9. **`container stats` supports `--format json` and a `--no-stream` flag**
    (the latter avoids needing to interrupt a streaming process to capture

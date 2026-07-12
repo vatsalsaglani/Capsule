@@ -1,7 +1,10 @@
 import Foundation
 
-/// Everything needed to build a `container run` invocation (plan §4.3). Pure
-/// data — no argv-building logic lives here yet.
+/// Everything needed to build a `container create` invocation (plan §4.3).
+/// Pure data — no argv-building logic lives here yet. Targets `create`, not
+/// `run` — `run` is create+start and would break the planner's
+/// `EnsureContainer`→`Start` separation (plan §4.5); `create`'s flags are a
+/// flag-identical subset for everything this spec expresses.
 ///
 /// **`RunSpec` → argv mapping table** (golden-tested in the P1A
 /// *implementation* PR, not this Contract PR):

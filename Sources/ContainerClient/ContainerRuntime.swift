@@ -33,8 +33,12 @@ public protocol ContainerRuntime: Sendable {
     /// passed one; it always emits JSON unconditionally (spike S2, finding #7).
     func inspectContainer(id: String) async throws -> ContainerDetail
 
-    /// Backing command: `container run …` built from the `RunSpec` argv
-    /// mapping table (plan §4.3). Returns the created container id.
+    /// Backing command: `container create` (not `run` — `run` is
+    /// create+start, and this method must not start the container as a side
+    /// effect, or it breaks the planner's `EnsureContainer`→`Start`
+    /// separation and `depends_on` ordering, plan §4.5) built from the
+    /// `RunSpec` argv mapping table (plan §4.3). Returns the created
+    /// container id.
     func createContainer(_ spec: RunSpec) async throws -> String
 
     /// Backing command: `container start <id>`.
