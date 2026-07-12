@@ -152,6 +152,13 @@ struct SystemView: View {
                 }
             }
             .frame(height: 6)
+            // The fill's proportion is neutral data-viz, not container state
+            // (accent here is the track, orange the reclaimable amount) —
+            // still needs a value label since color/position alone carry no
+            // VoiceOver signal (§6.5).
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(label) disk usage")
+            .accessibilityValue(diskUsageAccessibilityValue(usage))
             HStack(spacing: 4) {
                 Text(byteCountDescription(usage.sizeInBytes))
                     .font(.caption.monospacedDigit())
@@ -167,6 +174,11 @@ struct SystemView: View {
     private func reclaimableFraction(_ usage: ResourceUsage) -> CGFloat {
         guard usage.sizeInBytes > 0 else { return 0 }
         return CGFloat(Double(usage.reclaimableBytes) / Double(usage.sizeInBytes))
+    }
+
+    private func diskUsageAccessibilityValue(_ usage: ResourceUsage) -> String {
+        let percent = Int((reclaimableFraction(usage) * 100).rounded())
+        return "\(byteCountDescription(usage.sizeInBytes)) total, \(percent) percent reclaimable"
     }
 
     private func byteCountDescription(_ bytes: UInt64) -> String {
@@ -191,11 +203,10 @@ struct SystemView: View {
                     .font(.callout.monospaced())
                     .textSelection(.enabled)
                 Spacer()
-                Button {
+                Button("Copy Command", systemImage: "doc.on.doc") {
                     copyToPasteboard(Self.dnsCommand)
-                } label: {
-                    Image(systemName: "doc.on.doc")
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
                 .help("Copy command")
             }

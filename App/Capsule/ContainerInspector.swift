@@ -63,6 +63,15 @@ struct ContainerInspector: View {
             }
         }
         .padding([.horizontal, .top])
+        // Color alone never carries the state signal (§6.5) — the combined
+        // label pairs the id with the status text already rendered above.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(headerAccessibilityLabel)
+    }
+
+    private var headerAccessibilityLabel: String {
+        guard let detail = store.detail else { return store.currentID ?? "" }
+        return "\(store.currentID ?? "") — \(detail.status)"
     }
 
     // MARK: - Overview
@@ -130,11 +139,10 @@ struct ContainerInspector: View {
                             .font(.callout.monospacedDigit())
                         Spacer()
                         if let url = store.browserURL(for: port) {
-                            Button {
+                            Button("Open in Browser", systemImage: "safari") {
                                 openURL(url)
-                            } label: {
-                                Image(systemName: "safari")
                             }
+                            .labelStyle(.iconOnly)
                             .buttonStyle(.borderless)
                             .help("Open \(url.absoluteString)")
                         }
@@ -254,6 +262,11 @@ struct ContainerInspector: View {
             .chartYScale(domain: 0...max(100, (store.cpuPercentSeries.map(\.percent).max() ?? 100)))
             .chartXAxis(.hidden)
             .frame(minHeight: 120, maxHeight: 160)
+            // Swift Charts animates new points drawing onto the line by
+            // default — gate that under reduced motion (§6.5) the same way
+            // the tab transition and state-dot pulse already do; the sample
+            // still lands instantly, just without the animated draw-in.
+            .animation(reduceMotion ? nil : .default, value: store.cpuPercentSeries)
         }
     }
 
