@@ -39,6 +39,7 @@ survives runtime restarts and CLI absence gracefully.
 - [x] Repo scaffold: CapsuleKit SPM monorepo, `ContainerRuntime` protocol, `CLIProcessClient` (list/start/stop/delete/version), version gate, `Subprocess` with timeout+cancellation
 - [x] `capsule doctor` (binary, version, apiserver status, GitHub update check)
 - [x] `capsule ls`; app skeleton: sidebar, live-polling Containers screen, menu-bar extra stub
+- [x] P1A Contract PR: `ContainerRuntime` widened to the full system/containers/images/volumes/networks surface, `RunSpec`, `RuntimeModels` DTOs decoded against verbatim S2 JSON, `ContainerClientTestSupport`'s `FakeContainerRuntime` — signatures frozen; `CLIProcessClient` bodies beyond the original five (+`systemStatus`) are `notImplemented` stubs pending the P1A implementation PR
 - [ ] Poller → EventBus → synthesized `RuntimeEvent`s (replace the ViewModel's direct polling loop)
 - [ ] Containers screen: inspect detail, logs (follow), stats sparkline, `container cp`, open-in-browser from port mappings
 - [ ] Images screen: list, pull with progress, tag, push, delete, prune, registry login

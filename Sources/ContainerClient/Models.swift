@@ -38,12 +38,23 @@ public struct ContainerSummary: Sendable, Identifiable, Equatable {
     public let status: String
     public let imageReference: String?
     public let addresses: [String]
+    public let ports: [PortMapping]
+    public let labels: [String: String]
 
-    public init(id: String, status: String, imageReference: String?, addresses: [String]) {
+    public init(
+        id: String,
+        status: String,
+        imageReference: String?,
+        addresses: [String],
+        ports: [PortMapping] = [],
+        labels: [String: String] = [:]
+    ) {
         self.id = id
         self.status = status
         self.imageReference = imageReference
         self.addresses = addresses
+        self.ports = ports
+        self.labels = labels
     }
 
     public var runState: ContainerRunState {
@@ -52,32 +63,59 @@ public struct ContainerSummary: Sendable, Identifiable, Equatable {
 }
 
 extension ContainerSummary: Decodable {
-    // Shape inferred from `container … --format json` v1.1.0 output: arrays of
-    // objects with a nested `configuration` and lowerCamelCase keys (verified
-    // for `image list`; `list` pending a populated runtime — spike S2, see
-    // docs/learnings/2026-07-12-runtime-cli-observations.md). Decoding is
-    // deliberately tolerant: only `configuration.id` is required.
+    // Shape pinned by a populated runtime capture (spike S2, 2026-07-13; see
+    // docs/learnings/2026-07-12-runtime-cli-observations.md finding #3 for
+    // the full two-container `container list --all --format json` capture).
+    // `id` (top-level) and `status.state` are required and throw on absence —
+    // shape drift on these structural keys should surface loudly, not fall
+    // back silently. `ports`/`labels`/`addresses` default to empty when their
+    // source keys are legitimately absent (e.g. no published ports) — that is
+    // not drift, just an empty resource.
+    //
+    // Note there is no top-level `status` string or top-level `networks` key
+    // in real output (both are dead `CodingKey`s from before S2) — `status`
+    // is an object (`{networks, startedDate, state}`) and resolved network
+    // info lives at `status.networks[]`, not a top-level `networks` array.
     private enum CodingKeys: String, CodingKey {
-        case status, configuration, networks
+        case id, status, configuration
     }
 
-    private struct Configuration: Decodable {
-        struct ImageRef: Decodable { let reference: String? }
-        let id: String
-        let image: ImageRef?
+    private enum StatusKeys: String, CodingKey {
+        case state, networks
     }
 
-    private struct NetworkAttachment: Decodable { let address: String? }
+    private enum ConfigurationKeys: String, CodingKey {
+        case image, publishedPorts, labels
+    }
+
+    private enum ImageKeys: String, CodingKey {
+        case reference
+    }
+
+    private struct ResolvedNetworkAttachment: Decodable {
+        let ipv4Address: String?
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let configuration = try container.decode(Configuration.self, forKey: .configuration)
-        let attachments = (try? container.decode([NetworkAttachment].self, forKey: .networks)) ?? []
-        self.init(
-            id: configuration.id,
-            status: (try? container.decode(String.self, forKey: .status)) ?? "unknown",
-            imageReference: configuration.image?.reference,
-            addresses: attachments.compactMap(\.address)
-        )
+        let id = try container.decode(String.self, forKey: .id)
+
+        let statusContainer = try container.nestedContainer(keyedBy: StatusKeys.self, forKey: .status)
+        let status = try statusContainer.decode(String.self, forKey: .state)
+        let attachments = (try? statusContainer.decode([ResolvedNetworkAttachment].self, forKey: .networks)) ?? []
+        let addresses = attachments.compactMap(\.ipv4Address).map(strippingCIDRSuffix)
+
+        var imageReference: String?
+        var ports: [PortMapping] = []
+        var labels: [String: String] = [:]
+        if let configuration = try? container.nestedContainer(keyedBy: ConfigurationKeys.self, forKey: .configuration) {
+            if let imageContainer = try? configuration.nestedContainer(keyedBy: ImageKeys.self, forKey: .image) {
+                imageReference = try imageContainer.decodeIfPresent(String.self, forKey: .reference)
+            }
+            ports = (try? configuration.decode([PortMapping].self, forKey: .publishedPorts)) ?? []
+            labels = (try? configuration.decode([String: String].self, forKey: .labels)) ?? [:]
+        }
+
+        self.init(id: id, status: status, imageReference: imageReference, addresses: addresses, ports: ports, labels: labels)
     }
 }

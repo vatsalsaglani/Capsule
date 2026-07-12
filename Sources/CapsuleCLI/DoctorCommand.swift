@@ -39,7 +39,7 @@ struct DoctorCommand: AsyncParsableCommand {
 
         do {
             let status = try await client.systemStatus()
-            if status.contains("running") {
+            if status.isRunning {
                 print("✓ runtime apiserver is running")
             } else {
                 print("⚠ runtime is not running — start it with `container system start`")

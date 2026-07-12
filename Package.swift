@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .executable(name: "capsule", targets: ["CapsuleCLI"]),
         .library(name: "ContainerClient", targets: ["ContainerClient"]),
+        .library(name: "ContainerClientTestSupport", targets: ["ContainerClientTestSupport"]),
         .library(name: "ComposeSpec", targets: ["ComposeSpec"]),
         .library(name: "ComposePlanner", targets: ["ComposePlanner"]),
         .library(name: "ComposeRuntime", targets: ["ComposeRuntime"]),
@@ -27,6 +28,7 @@ let package = Package(
     targets: [
         .target(name: "EventBus"),
         .target(name: "ContainerClient"),
+        .target(name: "ContainerClientTestSupport", dependencies: ["ContainerClient"]),
         .target(name: "ComposeSpec", dependencies: [
             .product(name: "Yams", package: "Yams"),
         ]),
@@ -45,7 +47,7 @@ let package = Package(
             "ComposeRuntime",
             "ProjectStore",
         ]),
-        .testTarget(name: "ContainerClientTests", dependencies: ["ContainerClient"]),
+        .testTarget(name: "ContainerClientTests", dependencies: ["ContainerClient", "ContainerClientTestSupport"]),
         .testTarget(name: "ComposeSpecTests", dependencies: ["ComposeSpec"]),
         .testTarget(name: "ComposePlannerTests", dependencies: ["ComposePlanner"]),
         .testTarget(name: "SupervisorTests", dependencies: ["Supervisor"]),
