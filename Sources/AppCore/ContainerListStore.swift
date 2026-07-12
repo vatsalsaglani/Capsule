@@ -190,6 +190,15 @@ public final class ContainerListStore {
     /// Stops every currently-running container, one at a time in id order.
     /// A failure on one id is recorded as `lastActionError` and does not
     /// prevent the remaining ids from being attempted.
+    ///
+    /// **B1 nit N2:** `runningIDs` is a snapshot taken at loop-start; each
+    /// `stopContainer` call is awaited in turn, so a container further down
+    /// the list may have already stopped on its own (or been stopped by a
+    /// concurrent caller) by the time its turn comes up. An "already
+    /// stopped"-shaped failure for that specific, benign race is not the
+    /// user's problem — this call was trying to stop that container anyway —
+    /// so it's swallowed rather than surfaced as a spurious `lastActionError`
+    /// for a stop that effectively already succeeded.
     public func stopAllRunning() async {
         guard let runtime else { return }
         let runningIDs = currentList.filter { $0.runState == .running }.map(\.id)
@@ -197,9 +206,15 @@ public final class ContainerListStore {
             do {
                 try await runtime.stopContainer(id: id, timeoutSeconds: nil)
             } catch {
+                guard !Self.isAlreadyStoppedError(error) else { continue }
                 setActionError(id: id, error: error)
             }
         }
+    }
+
+    private static func isAlreadyStoppedError(_ error: Error) -> Bool {
+        let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+        return message.lowercased().contains("already stopped")
     }
 
     private func perform(id: String, _ operation: (any ContainerRuntime) async throws -> Void) async {
@@ -222,6 +237,14 @@ public final class ContainerListStore {
         switch event {
         case .snapshot(let containers):
             phase = .loaded(containers.sorted { $0.id < $1.id })
+        // B1 nit N3: `RuntimePoller` never publishes `containerAdded`/
+        // `containerRemoved`/`containerStateChanged` while its tick is
+        // failing (it publishes `runtimeBecameUnavailable` instead and
+        // retries the whole tick), so `insertSorted`/`removeByID` running
+        // against `currentList`'s `.unavailable` branch (`lastKnown`) and
+        // silently promoting `phase` to `.loaded` is unreachable today — kept
+        // here rather than special-cased because it's the harmless fallback
+        // if that poller contract ever changes.
         case .containerAdded(let summary):
             insertSorted(summary)
         case .containerRemoved(let id):

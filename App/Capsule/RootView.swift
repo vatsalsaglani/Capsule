@@ -1,3 +1,4 @@
+import AppCore
 import SwiftUI
 
 // Sidebar sections use direct, specific labels — never "Home" (plan §6.1).
@@ -51,6 +52,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 }
 
 struct RootView: View {
+    @Environment(RuntimeSession.self) private var session
     @State private var selection: SidebarItem? = .containers
 
     var body: some View {
@@ -63,7 +65,7 @@ struct RootView: View {
         } detail: {
             switch selection ?? .containers {
             case .containers:
-                ContainersView()
+                ContainersView(session: session)
             case let item:
                 PlaceholderView(item: item)
             }

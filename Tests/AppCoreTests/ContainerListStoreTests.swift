@@ -201,6 +201,63 @@ private func makeWebContainer(id: String, status: String) -> ContainerSummary {
     store.stop()
 }
 
+// MARK: - 4b. N2 — stopAllRunning tolerates "already stopped"
+
+@MainActor
+@Test func stopAllRunningToleratesAnAlreadyStoppedErrorAndStillStopsTheRest() async throws {
+    let fake = FakeContainerRuntime()
+    let bus = EventBus<RuntimeEvent>()
+    let poller = RuntimePoller(runtime: fake, events: bus, interval: .milliseconds(15))
+    let store = ContainerListStore(runtime: fake, events: bus)
+
+    let running1 = makeWebContainer(id: "a", status: "running")
+    let running2 = makeWebContainer(id: "b", status: "running")
+    await fake.setContainers([running1, running2])
+    await store.start()
+    await poller.start()
+    #expect(await waitUntil { store.phase == .loaded([running1, running2]) })
+
+    await fake.setError(ProbeError(message: "container is already stopped"), for: .stopContainer)
+    await store.stopAllRunning()
+
+    // Both ids were still attempted (the benign race doesn't short-circuit
+    // the loop) and no spurious `lastActionError` was recorded for either.
+    let stopCalls = await fake.calls.filter {
+        if case .stopContainer = $0 { return true }
+        return false
+    }
+    #expect(stopCalls == [
+        .stopContainer(id: "a", timeoutSeconds: nil),
+        .stopContainer(id: "b", timeoutSeconds: nil),
+    ])
+    #expect(store.lastActionError == nil)
+
+    await poller.stop()
+    store.stop()
+}
+
+@MainActor
+@Test func stopAllRunningStillSurfacesARealFailure() async throws {
+    let fake = FakeContainerRuntime()
+    let bus = EventBus<RuntimeEvent>()
+    let poller = RuntimePoller(runtime: fake, events: bus, interval: .milliseconds(15))
+    let store = ContainerListStore(runtime: fake, events: bus)
+
+    let running = makeWebContainer(id: "a", status: "running")
+    await fake.setContainers([running])
+    await store.start()
+    await poller.start()
+    #expect(await waitUntil { store.phase == .loaded([running]) })
+
+    await fake.setError(ProbeError(message: "internalError: some other real failure"), for: .stopContainer)
+    await store.stopAllRunning()
+
+    #expect(store.lastActionError == ContainerListStore.ActionError(id: "a", message: "internalError: some other real failure"))
+
+    await poller.stop()
+    store.stop()
+}
+
 // MARK: - 5. runtimeMissing
 
 @MainActor
@@ -218,6 +275,33 @@ private func makeWebContainer(id: String, status: String) -> ContainerSummary {
     await session.start()
     await session.stop()
     #expect(session.containers.phase == .runtimeMissing(message: "container CLI not found"))
+}
+
+// MARK: - 5b. N1 — RuntimeSession.start() ordering (containers before poller)
+
+@MainActor
+@Test func sessionStartsTheContainersSubscriptionBeforeThePollerSoTheFirstSnapshotIsNeverDropped() async throws {
+    let fake = FakeContainerRuntime()
+    let web1 = makeWebContainer(id: "web-1", status: "running")
+    await fake.setContainers([web1])
+    let session = RuntimeSession(
+        makeRuntime: { fake },
+        pollInterval: .milliseconds(15), idleInterval: .milliseconds(80), unavailableInterval: .milliseconds(15)
+    )
+
+    // If `RuntimeSession.start()` ever started the poller before subscribing
+    // `containers` to the bus, the poller's very first `.snapshot` publish
+    // could race ahead of the store's subscribe and get silently dropped
+    // forever (`EventBus.publish` doesn't replay for late subscribers) — the
+    // store would then be stuck in `.connecting` no matter how long this
+    // waits. This pins the ordering the whole pipeline depends on (see
+    // `ContainerListStore.start()`'s doc comment), not just "does it
+    // eventually load."
+    await session.start()
+
+    #expect(await waitUntil { session.containers.phase == .loaded([web1]) })
+
+    await session.stop()
 }
 
 // MARK: - 6. MenuBarStore
@@ -259,4 +343,26 @@ private func makeWebContainer(id: String, status: String) -> ContainerSummary {
     try await gateway.systemStop()
 
     #expect(await fake.calls == [.systemStart, .systemStop])
+}
+
+// MARK: - 8. RuntimeSession.makeDetailStore()
+
+@MainActor
+@Test func makeDetailStoreBuildsAWorkingStoreOnTheSharedPipeline() async throws {
+    let fake = FakeContainerRuntime()
+    await fake.setDetail(ContainerDetail(id: "web-1", status: "running", imageReference: "nginx"), forID: "web-1")
+    let session = RuntimeSession(makeRuntime: { fake })
+
+    let detailStore = session.makeDetailStore()
+    #expect(detailStore != nil)
+
+    await detailStore?.activate(id: "web-1")
+    #expect(detailStore?.detail?.imageReference == "nginx")
+}
+
+@MainActor
+@Test func makeDetailStoreReturnsNilWhenConstructionHitRuntimeMissing() async throws {
+    let session = RuntimeSession(makeRuntime: { throw ProbeError(message: "container CLI not found") })
+
+    #expect(session.makeDetailStore() == nil)
 }

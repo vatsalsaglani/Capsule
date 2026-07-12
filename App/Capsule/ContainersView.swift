@@ -1,150 +1,91 @@
+import AppCore
 import ContainerClient
-import Observation
 import SwiftUI
 
-@MainActor @Observable
-final class ContainersViewModel {
-    enum Phase {
-        case loading
-        case unavailable(String)
-        case loaded([ContainerSummary])
-    }
-
-    private(set) var phase: Phase = .loading
-    private let runtime: (any ContainerRuntime)?
-
-    init(runtime: (any ContainerRuntime)? = try? CLIProcessClient()) {
-        self.runtime = runtime
-    }
-
-    /// MVP polling loop (plan §3): replaced by the Poller→EventBus pipeline
-    /// during M1 without touching the view.
-    func poll() async {
-        while !Task.isCancelled {
-            await refresh()
-            try? await Task.sleep(for: .seconds(2))
-        }
-    }
-
-    func refresh() async {
-        guard let runtime else {
-            phase = .unavailable(
-                "The `container` CLI was not found. Install it from github.com/apple/container/releases, then relaunch Capsule."
-            )
-            return
-        }
-        do {
-            phase = .loaded(try await runtime.listContainers(all: true))
-        } catch {
-            phase = .unavailable(
-                "The container runtime is not responding. Start it with `container system start`.\n\n\(error.localizedDescription)"
-            )
-        }
-    }
-
-    func start(_ container: ContainerSummary) async {
-        try? await runtime?.startContainer(id: container.id)
-        await refresh()
-    }
-
-    func stop(_ container: ContainerSummary) async {
-        try? await runtime?.stopContainer(id: container.id)
-        await refresh()
-    }
-
-    func delete(_ container: ContainerSummary) async {
-        try? await runtime?.deleteContainer(id: container.id, force: false)
-        await refresh()
-    }
-}
-
+/// The Containers screen (P1B B3) — list bound to the shared
+/// `ContainerListStore.phase`, trailing inspector bound to a
+/// `ContainerDetailStore` built from the same `RuntimeSession`. Shared
+/// verbatim with the `#if DEBUG` feel prototype (`FeelPrototypeDemoView`),
+/// which passes a scripted `RuntimeSession` instead of the real one — same
+/// view code, same production data path, per the P1B B2+B3 brief.
 struct ContainersView: View {
-    @State private var model = ContainersViewModel()
+    let session: RuntimeSession
+
+    @State private var detailStore: ContainerDetailStore?
+    @State private var selection: String?
+
+    init(session: RuntimeSession) {
+        self.session = session
+        _detailStore = State(initialValue: session.makeDetailStore())
+    }
 
     var body: some View {
-        Group {
-            switch model.phase {
-            case .loading:
-                ProgressView()
-            case .unavailable(let message):
-                ContentUnavailableView {
-                    Label("Runtime Unavailable", systemImage: "shippingbox")
-                } description: {
-                    Text(message)
-                } actions: {
-                    Button("Retry") {
-                        Task { await model.refresh() }
+        listContent
+            .navigationTitle("Containers")
+            .inspector(isPresented: inspectorPresented) {
+                if let detailStore {
+                    ContainerInspector(store: detailStore)
+                }
+            }
+            .onChange(of: selection) { _, newValue in
+                Task {
+                    if let newValue {
+                        await detailStore?.activate(id: newValue)
+                    } else {
+                        detailStore?.deactivate()
                     }
                 }
-            case .loaded(let containers) where containers.isEmpty:
-                ContentUnavailableView {
-                    Label("No Containers", systemImage: "shippingbox")
-                } description: {
-                    Text("Run one with `container run …` — it appears here live.")
-                }
-            case .loaded(let containers):
-                List(containers) { container in
-                    ContainerRow(container: container, model: model)
-                }
             }
-        }
-        .task { await model.poll() }
-        .navigationTitle("Containers")
     }
-}
 
-struct ContainerRow: View {
-    let container: ContainerSummary
-    let model: ContainersViewModel
+    private var inspectorPresented: Binding<Bool> {
+        Binding(
+            get: { selection != nil },
+            set: { isPresented in if !isPresented { selection = nil } }
+        )
+    }
 
-    var body: some View {
-        HStack(spacing: 10) {
-            StateDot(state: container.runState)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(container.id)
-                    .font(.body.weight(.medium))
-                Text(container.imageReference ?? "unknown image")
+    @ViewBuilder
+    private var listContent: some View {
+        switch session.containers.phase {
+        case .connecting:
+            ProgressView("Connecting…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .runtimeMissing(let message):
+            ContentUnavailableView {
+                Label("Runtime Not Found", systemImage: "shippingbox")
+            } description: {
+                Text(message)
+            }
+        case .unavailable(let message, let lastKnown):
+            VStack(spacing: 0) {
+                Label(message, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(nsColor: .systemOrange).opacity(0.12))
+                // Dimmed, not blanked — the last-known list stays visible and
+                // browsable through a transient outage (§6.1: never trap).
+                containerList(lastKnown)
+                    .disabled(true)
+                    .opacity(0.6)
             }
-            Spacer()
-            Text(container.addresses.joined(separator: ", "))
-                .font(.callout.monospaced())
-                .foregroundStyle(.secondary)
+        case .loaded(let containers) where containers.isEmpty:
+            ContentUnavailableView {
+                Label("No Containers", systemImage: "shippingbox")
+            } description: {
+                Text("Run one with `container run …` — it appears here live.")
+            }
+        case .loaded(let containers):
+            containerList(containers)
         }
-        .padding(.vertical, 2)
-        .contextMenu {
-            if container.runState == .running {
-                Button("Stop") { Task { await model.stop(container) } }
-            } else {
-                Button("Start") { Task { await model.start(container) } }
-            }
-            Divider()
-            Button("Delete", role: .destructive) {
-                Task { await model.delete(container) }
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(container.id) — \(container.status)")
-    }
-}
-
-/// Semantic state colors only — accent (indigo) never means state (plan §6.7).
-struct StateDot: View {
-    let state: ContainerRunState
-
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 8, height: 8)
-            .accessibilityHidden(true)
     }
 
-    private var color: Color {
-        switch state {
-        case .running: Color(nsColor: .systemGreen)
-        case .stopped: Color(nsColor: .systemGray)
-        case .unknown: Color(nsColor: .systemOrange)
+    private func containerList(_ containers: [ContainerSummary]) -> some View {
+        List(containers, selection: $selection) { container in
+            ContainerRow(container: container, store: session.containers)
+                .tag(container.id)
         }
     }
 }

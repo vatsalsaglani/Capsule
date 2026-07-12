@@ -32,6 +32,14 @@ public final class RuntimeSession {
     /// `nil` exactly when construction hit the `runtimeMissing` path — there
     /// is nothing to poll.
     private let poller: RuntimePoller?
+    /// Same `RuntimeGateway` `containers` was built on top of — shared, not
+    /// re-wrapped, so `makeDetailStore()` never spins up a second gateway
+    /// layer. `nil` exactly when construction hit the `runtimeMissing` path.
+    private let runtime: (any ContainerRuntime)?
+    /// Same bus `containers`/`poller` share — reused by every
+    /// `ContainerDetailStore` this session builds (one bus per session, per
+    /// this type's "construct once, share everywhere" contract).
+    private let events: EventBus<RuntimeEvent>
 
     /// Builds the real `CLIProcessClient`-backed pipeline (auto-locates the
     /// `container` binary).
@@ -60,9 +68,11 @@ public final class RuntimeSession {
         unavailableInterval: Duration = .seconds(5)
     ) {
         let events = EventBus<RuntimeEvent>()
+        self.events = events
         do {
             let base = try makeRuntime()
             let gateway = RuntimeGateway(base: base)
+            self.runtime = gateway
             self.poller = RuntimePoller(
                 runtime: gateway,
                 events: events,
@@ -72,11 +82,25 @@ public final class RuntimeSession {
             )
             self.containers = ContainerListStore(runtime: gateway, events: events)
         } catch {
+            self.runtime = nil
             self.poller = nil
             let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
             self.containers = ContainerListStore(runtimeMissingMessage: message)
         }
         self.menuBar = MenuBarStore(containers: self.containers)
+    }
+
+    /// Builds a fresh `ContainerDetailStore` bound to the same shared
+    /// runtime + event bus as `containers` — never a second poller/bus for
+    /// the same reason `MenuBarStore` derives from `containers` rather than
+    /// re-subscribing. `nil` exactly when construction hit the
+    /// `.runtimeMissing` path, matching `containers`' permanently-empty list
+    /// there (nothing to ever select or inspect). Call once per inspector
+    /// panel instance; the view drives its lifecycle via
+    /// `activate(id:)`/`deactivate()`.
+    public func makeDetailStore() -> ContainerDetailStore? {
+        guard let runtime else { return nil }
+        return ContainerDetailStore(runtime: runtime, events: events)
     }
 
     /// Starts the `containers` store's subscription *before* the shared

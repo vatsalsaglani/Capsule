@@ -22,6 +22,13 @@ targets:
     dependencies:
       - package: CapsuleKit
         product: ContainerClient
+      - package: CapsuleKit
+        product: AppCore
+      # Debug-only: backs the #if DEBUG scripted feel-prototype demo
+      # (`ScriptedDemoSession`/`FeelPrototypeDemoView`). Remove alongside
+      # that file once P4 polish lands (P1B B2+B3 commit note).
+      - package: CapsuleKit
+        product: ContainerClientTestSupport
     scheme:
       testTargets: []
     settings:
