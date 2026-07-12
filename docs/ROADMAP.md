@@ -29,7 +29,7 @@ discovery design (§4.4) and blocks Phase 2 planning details.
 - [x] **S2 `--format json` coverage** *(fully verified 2026-07-13 with a populated runtime)* — populated `container list` shape captured; no table-only commands found (`system status`/`system df`/`stats` all support JSON; `inspect` family emits JSON unconditionally, no `--format` flag); `ContainerSummary` tightening list (ports, labels, networks, status) handed off to P1A. See [spike](spikes/S2-json-coverage.md) and [learnings](learnings/2026-07-12-runtime-cli-observations.md).
 - [ ] **S3 PTY/exec** — SwiftTerm + `container exec -it` interactive quality (resize, colors, ctrl-c).
 - [ ] **S4 stats streaming** — `stats` output format, cost of polling 10 containers.
-- [ ] **S5 build streaming + cancel** — SIGINT semantics of `container build`; wire SIGKILL escalation into `Subprocess`.
+- [x] **S5 build streaming + cancel** *(decided 2026-07-13)* — SIGTERM alone (matching today's `terminate()`) exits `container build` in well under 1s and leaves the `buildkit` builder consistent; even SIGKILL of the CLI left no orphaned build process inside the builder VM. Recommend implementing the SIGKILL-escalation TODO in `Subprocess` anyway as a general 5s-grace defense-in-depth contract for *all* spawned children (not a build-specific fix — none was needed). `--progress plain` confirmed line-oriented/ANSI-free, ready for P1A's `FileHandle.bytes → AsyncThrowingStream` build streaming. See [spike](spikes/S5-build-cancel.md) and [learnings](learnings/2026-07-13-build-cancellation.md).
 
 ## Phase 1 — Runtime manager MVP (3–4 weeks) → `v0.0.x` alpha
 
