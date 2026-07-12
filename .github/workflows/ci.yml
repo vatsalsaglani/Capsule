@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Pure logic — fast and reliable. Integration tests against a real
+  # `container` runtime need a self-hosted Apple-silicon runner (plan §7)
+  # and are deliberately not attempted here.
+  package:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  app:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate --spec App/project.yml --project App
+      - name: Build app
+        run: >
+          xcodebuild -project App/Capsule.xcodeproj -scheme Capsule
+          -configuration Debug build CODE_SIGNING_ALLOWED=NO

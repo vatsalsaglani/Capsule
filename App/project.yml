@@ -1,0 +1,39 @@
+# XcodeGen spec — the generated Capsule.xcodeproj is never committed.
+#   brew install xcodegen
+#   xcodegen generate --spec App/project.yml --project App
+#   open App/Capsule.xcodeproj
+name: Capsule
+options:
+  bundleIdPrefix: com.vatsalsaglani
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+
+packages:
+  CapsuleKit:
+    path: ..
+
+targets:
+  Capsule:
+    type: application
+    platform: macOS
+    sources:
+      - path: Capsule
+    dependencies:
+      - package: CapsuleKit
+        product: ContainerClient
+    scheme:
+      testTargets: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vatsalsaglani.capsule
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        SWIFT_VERSION: "6.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        # Deliberately NOT sandboxed: the app execs the `container` CLI and
+        # talks to its XPC services, which App Sandbox breaks. Distribution is
+        # Developer ID + notarization, not the Mac App Store.

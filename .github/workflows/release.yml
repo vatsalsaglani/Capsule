@@ -1,0 +1,30 @@
+name: Release
+
+# CLI binaries on tag push. The notarized app dmg is a Phase 4 deliverable
+# (docs/ROADMAP.md) and will join this workflow then.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  cli:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build capsule CLI
+        run: swift build -c release --product capsule
+      - name: Package
+        run: |
+          BIN_DIR=$(swift build -c release --product capsule --show-bin-path)
+          tar -C "$BIN_DIR" -czf "capsule-${{ github.ref_name }}-arm64-apple-macos.tar.gz" capsule
+          shasum -a 256 capsule-*.tar.gz > checksums.txt
+      - name: Draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            capsule-*.tar.gz
+            checksums.txt
