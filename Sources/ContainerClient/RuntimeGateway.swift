@@ -198,9 +198,16 @@ public actor RuntimeGateway: ContainerRuntime {
 
         // FIFO chain: wait for whatever was queued ahead of us (tolerating
         // its failure — a failed prior op still must not block the next
-        // one), then run the real operation.
+        // one), then run the real operation. The cancellation check between
+        // those two steps matters: a queued op whose caller already walked
+        // away (cancelled while still waiting behind `previousTail`) skips
+        // `operation()` entirely instead of spawning a subprocess only to
+        // have it immediately killed — cheap to check, and doesn't change
+        // the tail-cleanup path below (that only cares whether `opTask`
+        // throws, not *what* it throws or *when*).
         let opTask = Task<T, Error> {
             _ = await previousTail?.value
+            try Task.checkCancellation()
             return try await operation()
         }
         // Erase `opTask`'s value/error into a plain completion signal so the

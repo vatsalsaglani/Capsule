@@ -33,6 +33,22 @@ enum StreamedFileDescriptor: Sendable {
 /// single reader `Task` that owns it, and no `@unchecked Sendable` wrapper is
 /// needed (contrast `Subprocess.swift`'s `UncheckedSendableBox`, which stays
 /// scoped to that file only).
+///
+/// **Caveat — sequential, not concurrent, fd draining:** the reader only
+/// starts draining the *other* fd (for the failure-path stderr/stdout tail)
+/// **after** the main fd reaches EOF, not concurrently with it (see the
+/// implementation below). A pipe's kernel buffer is finite (64KB on Darwin);
+/// if a child writes more than that to the *other* fd while the *main* fd is
+/// still streaming, that write blocks the child once the buffer fills, and
+/// since nothing here is reading the other fd yet, the child (and this
+/// stream) stalls. Harmless for what P1A actually wraps — `logs` writes only
+/// to stdout, `image pull --progress plain` writes only to stderr, so the
+/// unread "other" fd only ever carries incidental noise, verified empty in
+/// both live probes. This becomes a real risk if a later phase reuses this
+/// type for something chattier on *both* fds at once (`container build
+/// --progress plain`'s own stdout/stderr split is unverified as of P1A) —
+/// revisit with concurrent draining (e.g. a second reader task) before that
+/// reuse ships.
 enum SubprocessLineStream {
     static func run<Element: Sendable>(
         executablePath: String,

@@ -32,10 +32,16 @@ import Testing
     let elapsed = clock.now - start
     #expect(elapsed < .seconds(2))
 
-    // No lingering child left behind (the marker makes this pgrep specific
-    // to *this* test's process, not any other concurrently-running test).
-    // Bracketing the first character keeps the search pattern itself from
-    // self-matching the invoking `pgrep` process's own argv.
+    // The *direct* child (`sh`, which carries the marker in its own `-c`
+    // argument) is gone — this does NOT prove the orphaned `sleep 30`
+    // grandchild is gone too (it never carries the marker in its own argv,
+    // since it's invoked as bare `sleep 30`; see docs/learnings/
+    // 2026-07-13-p1a-implementation-notes.md for why that grandchild can
+    // outlive the direct child by design of this fallback). The marker
+    // makes this pgrep specific to *this* test's `sh` process, not any
+    // other concurrently-running test's. Bracketing the first character
+    // keeps the search pattern itself from self-matching the invoking
+    // `pgrep` process's own argv.
     let bracketedMarker = "[\(marker.first!)]\(marker.dropFirst())"
     let check = try await Subprocess.run(
         executablePath: "/bin/sh",

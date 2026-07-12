@@ -168,8 +168,13 @@ public actor RuntimePoller {
         !Task.isCancelled && generation == runGeneration
     }
 
+    /// `uniquingKeysWith:` (keep-last), not `uniqueKeysWithValues:` — the
+    /// latter traps on a duplicate key, and there's no guarantee the runtime
+    /// never returns a duplicate id (a misbehaving/racing `container list`
+    /// shouldn't be able to crash the poller). Keeping the last occurrence
+    /// is an arbitrary but harmless tie-break for an already-anomalous input.
     private static func index(_ containers: [ContainerSummary]) -> [String: ContainerSummary] {
-        Dictionary(uniqueKeysWithValues: containers.map { ($0.id, $0) })
+        Dictionary(containers.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
     }
 
     private struct StoppedWhileAwaiting: Error {}
