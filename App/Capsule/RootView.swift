@@ -66,6 +66,10 @@ struct RootView: View {
             switch selection ?? .containers {
             case .containers:
                 ContainersView(session: session)
+            case .images:
+                ImagesView(session: session)
+            case .system:
+                SystemView(session: session)
             case let item:
                 PlaceholderView(item: item)
             }

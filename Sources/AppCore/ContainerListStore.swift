@@ -143,6 +143,15 @@ public final class ContainerListStore {
         currentList.filter { $0.runState == .running }.count
     }
 
+    /// The flat container list for whatever `phase` currently holds — same
+    /// derivation `currentList` already does internally, exposed publicly so
+    /// other screens (e.g. Images, cross-referencing "is this image in use by
+    /// a container") can read it without duplicating the phase-unwrapping
+    /// switch a View would otherwise have to write itself (AGENTS rule 1).
+    public var currentContainers: [ContainerSummary] {
+        currentList
+    }
+
     private var currentList: [ContainerSummary] {
         switch phase {
         case .connecting, .runtimeMissing:

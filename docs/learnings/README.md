@@ -33,3 +33,4 @@ note and say so — don't delete history silently.
 - [2026-07-13 — P1A implementation: CLI argv facts + a Subprocess cancellation edge case](2026-07-13-p1a-implementation-notes.md)
 - [2026-07-13 — stats polling cost](2026-07-13-stats-polling-cost.md)
 - [2026-07-13 — `cpuUsageUsec` semantics: cumulative, not a rate](2026-07-13-cpu-usage-usec-semantics.md)
+- [2026-07-13 — swift-testing: `@Test` function names must be unique per target, not per file](2026-07-13-swift-testing-name-collisions.md)

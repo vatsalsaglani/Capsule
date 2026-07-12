@@ -103,6 +103,25 @@ public final class RuntimeSession {
         return ContainerDetailStore(runtime: runtime, events: events)
     }
 
+    /// Builds a fresh `ImagesStore` bound to the same shared runtime as
+    /// `containers`. `ImagesStore` has no event-bus subscription of its own
+    /// (no `RuntimeEvent` case exists for image list changes — it's
+    /// deliberately on-demand, see its doc comment), so unlike
+    /// `makeDetailStore()` there's no `events` to pass. `nil` exactly when
+    /// construction hit the `.runtimeMissing` path — nothing to list.
+    public func makeImagesStore() -> ImagesStore? {
+        guard let runtime else { return nil }
+        return ImagesStore(runtime: runtime)
+    }
+
+    /// Builds a fresh `SystemStore` bound to the same shared runtime as
+    /// `containers`, same on-demand posture as `makeImagesStore()`. `nil`
+    /// exactly when construction hit the `.runtimeMissing` path.
+    public func makeSystemStore() -> SystemStore? {
+        guard let runtime else { return nil }
+        return SystemStore(runtime: runtime)
+    }
+
     /// Starts the `containers` store's subscription *before* the shared
     /// poller, in that order — the store's subscription must be registered
     /// on the bus before the poller can publish its first `.snapshot`, or

@@ -366,3 +366,59 @@ private func makeWebContainer(id: String, status: String) -> ContainerSummary {
 
     #expect(session.makeDetailStore() == nil)
 }
+
+// MARK: - 9. currentContainers derivation
+
+@MainActor
+@Test func currentContainersMirrorsPhaseAcrossEveryCase() async throws {
+    let fake = FakeContainerRuntime()
+    let bus = EventBus<RuntimeEvent>()
+    let poller = RuntimePoller(runtime: fake, events: bus, interval: .milliseconds(15))
+    let store = ContainerListStore(runtime: fake, events: bus)
+
+    #expect(store.currentContainers.isEmpty) // .connecting
+
+    let web1 = makeWebContainer(id: "web-1", status: "running")
+    await fake.setContainers([web1])
+    await store.start()
+    await poller.start()
+
+    #expect(await waitUntil { store.currentContainers == [web1] })
+
+    await fake.setError(ProbeError(message: "boom"), for: .listContainers)
+    #expect(await waitUntil { store.currentContainers == [web1] }) // .unavailable keeps lastKnown
+
+    await poller.stop()
+    store.stop()
+}
+
+// MARK: - 10. RuntimeSession.makeImagesStore() / makeSystemStore()
+
+@MainActor
+@Test func makeImagesStoreAndMakeSystemStoreBuildWorkingStoresOnTheSharedPipeline() async throws {
+    let fake = FakeContainerRuntime()
+    await fake.setImages([ImageSummary(id: "img-1", reference: "nginx:latest")])
+    let session = RuntimeSession(makeRuntime: { fake })
+
+    let imagesStore = session.makeImagesStore()
+    #expect(imagesStore != nil)
+    await imagesStore?.refresh()
+    #expect(imagesStore?.phase == .loaded([ImageSummary(id: "img-1", reference: "nginx:latest")]))
+
+    let systemStore = session.makeSystemStore()
+    #expect(systemStore != nil)
+    await systemStore?.refresh()
+    if case .loaded(let status, _) = systemStore?.phase {
+        #expect(status.status == "running")
+    } else {
+        Issue.record("expected .loaded, got \(String(describing: systemStore?.phase))")
+    }
+}
+
+@MainActor
+@Test func makeImagesStoreAndMakeSystemStoreReturnNilWhenConstructionHitRuntimeMissing() async throws {
+    let session = RuntimeSession(makeRuntime: { throw ProbeError(message: "container CLI not found") })
+
+    #expect(session.makeImagesStore() == nil)
+    #expect(session.makeSystemStore() == nil)
+}
