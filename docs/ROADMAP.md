@@ -25,7 +25,7 @@ Releases happen on GitHub: alpha `v0.0.x` tags out of Phase 1, the public
 Findings go to `docs/spikes/` (see the README there). S1 decides the service
 discovery design (§4.4) and blocks Phase 2 planning details.
 
-- [ ] **S1 DNS/networks** — do bare service names resolve container-to-container on a user-defined network? *Highest risk, do first.*
+- [x] **S1 DNS/networks** *(decided 2026-07-13)* — bare-name DNS fails on both custom and default networks (`NXDOMAIN`); `--dns-search`/`--dns-domain` plumb into `resolv.conf` but don't help. Hosts injection verified non-sudo and ships as the default discovery mechanism; the search-domain primary path is sudo-gated (`system dns create`) and stays unverified pending a human. See [spike](spikes/S1-dns-service-discovery.md) and [learnings](learnings/2026-07-13-container-dns-discovery.md).
 - [x] **S2 `--format json` coverage** *(seeded 2026-07-12)* — v1.1.0 confirmed; lowerCamelCase nested-`configuration` shape verified for `image list`; `container list` shape still needs a populated runtime. See [learnings](learnings/2026-07-12-runtime-cli-observations.md).
 - [ ] **S3 PTY/exec** — SwiftTerm + `container exec -it` interactive quality (resize, colors, ctrl-c).
 - [ ] **S4 stats streaming** — `stats` output format, cost of polling 10 containers.
@@ -94,6 +94,6 @@ machine` first-class UX · Sparkle auto-updates · plugin story.
 
 ## Top risks (watch actively)
 
-1. **S1 fails** — bare-hostname DNS doesn't work container-to-container → hosts-injection/DNS-proxy fallbacks add complexity to Phase 2.
+1. **S1 fails (confirmed 2026-07-13)** — bare-hostname DNS doesn't work container-to-container on either network type → hosts-injection fallback (verified non-sudo) is the shipping mechanism for Phase 2; adds a per-restart reconciliation step to the supervisor. See [S1 spike](spikes/S1-dns-service-discovery.md).
 2. **JSON gaps** — some commands lack `--format json` → pin CLI version, contribute upstream PRs, keep table-parser fallback behind a version check.
 3. **Per-VM memory pressure** — many containers hold host memory → surface memory prominently in UI, "restart heavy containers" affordance.
