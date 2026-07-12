@@ -6,8 +6,10 @@ import Foundation
 /// `EnsureContainer`→`Start` separation (plan §4.5); `create`'s flags are a
 /// flag-identical subset for everything this spec expresses.
 ///
-/// **`RunSpec` → argv mapping table** (golden-tested in the P1A
-/// *implementation* PR, not this Contract PR):
+/// **`RunSpec` → argv mapping table** (golden-tested by `RunSpecArgvBuilder`
+/// / `RunSpecArgvBuilderTests`, P1A implementation PR). Built by
+/// `RunSpec.createArguments`, in this fixed flag-group order (env/labels
+/// sorted by key for determinism):
 ///
 /// | Field | Flag |
 /// |---|---|
@@ -17,12 +19,10 @@ import Foundation
 /// | `workingDirectory` | `-w` |
 /// | `user` | `-u` |
 /// | `ports[i]` | `-p [hostAddress:]hostPort:containerPort/proto` (proto always explicit) |
-/// | `mounts[i]` `.bind(ro: false)` | `-v src:tgt` |
-/// | `mounts[i]` `.bind(ro: true)` | `--mount type=bind,source=,target=,readonly` |
-/// | `mounts[i]` `.volume(ro: false)` | `-v name:tgt` |
-/// | `mounts[i]` `.volume(ro: true)` | `--mount type=volume,source=name,target=,readonly` |
+/// | `mounts[i]` `.bind(ro: false\|true)` | `-v src:tgt` (+ `:ro` if read-only) |
+/// | `mounts[i]` `.volume(ro: false\|true)` | `-v name:tgt` (+ `:ro` if read-only) |
 /// | `mounts[i]` `.tmpfs` | `--tmpfs /target` |
-/// | `networks[i]` | `--network`, one per entry |
+/// | `networks[i]` | `--network`, one per entry (repeatable — live probe, no constraint) |
 /// | `platform` | `--platform` |
 /// | `rosetta` | `--rosetta` |
 /// | `useInit` | `--init` |
@@ -35,6 +35,14 @@ import Foundation
 /// | `shmSize` | `--shm-size` |
 /// | `image` | positional, after all flags |
 /// | `command` | trailing positionals |
+///
+/// Live probe corrections from the P1A Contract PR's table: `-v
+/// source:target:ro` is verified to work for **both** bind and named-volume
+/// mounts (`inspect` shows `options: ["ro"]`), so the builder uses that
+/// simpler uniform form for both cases rather than the earlier guess of a
+/// separate `--mount type=…,readonly` flag for the read-only case.
+/// `--mount type=bind|volume,…,readonly` is still an **accepted equivalent**
+/// the runtime understands, but the builder never emits it.
 public struct RunSpec: Sendable, Hashable, Codable {
     public var image: String
     public var name: String?

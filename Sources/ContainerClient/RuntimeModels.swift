@@ -74,13 +74,92 @@ public struct NetworkAttachment: Sendable, Hashable, Codable {
 
 // MARK: - Container detail
 
+/// One `configuration.mounts[]` element (populated shape verified against a
+/// live probe — S2 only ever observed an empty array; corrected here for the
+/// P1A implementation PR). Shape: `{destination, source, options: []|["ro"],
+/// type: {virtiofs:{}} | {volume:{name,format,cache,sync}} | {tmpfs:{}}}`.
+/// **Bind mounts report their type key as `virtiofs`**, not `bind` — that is
+/// the runtime's internal backing mechanism name, not a Capsule naming
+/// choice; `Kind.bind` is the Swift-side name matching `Mount.bind` on the
+/// input side (`RunSpec`).
+public struct MountDetail: Sendable, Equatable {
+    public enum Kind: Sendable, Equatable {
+        /// JSON type key `virtiofs`.
+        case bind
+        case volume(name: String?)
+        case tmpfs
+        /// An unrecognized `type` key — surfaces shape drift instead of
+        /// silently mis-categorizing the mount.
+        case unknown(String)
+    }
+
+    public let destination: String
+    public let source: String?
+    public let options: [String]
+    public let kind: Kind
+
+    public init(destination: String, source: String?, options: [String], kind: Kind) {
+        self.destination = destination
+        self.source = source
+        self.options = options
+        self.kind = kind
+    }
+
+    public var isReadOnly: Bool { options.contains("ro") }
+}
+
+extension MountDetail: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case destination, source, options, type
+    }
+    /// Dynamic key so `allKeys` reflects whatever the JSON actually contains
+    /// — a fixed `String`-backed `CodingKey` enum only ever reports the
+    /// cases *it* declares, silently hiding any truly unrecognized `type`
+    /// key instead of letting it surface via `Kind.unknown`.
+    private struct AnyKey: CodingKey {
+        let stringValue: String
+        let intValue: Int?
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+            self.intValue = nil
+        }
+        init?(intValue: Int) {
+            self.stringValue = String(intValue)
+            self.intValue = intValue
+        }
+    }
+    private struct VolumeType: Decodable {
+        let name: String?
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let destination = try container.decode(String.self, forKey: .destination)
+        let source = try container.decodeIfPresent(String.self, forKey: .source)
+        let options = (try? container.decode([String].self, forKey: .options)) ?? []
+
+        var kind: Kind = .unknown("(no type key)")
+        if let typeContainer = try? container.nestedContainer(keyedBy: AnyKey.self, forKey: .type) {
+            let presentKeys = Set(typeContainer.allKeys.map(\.stringValue))
+            if presentKeys.contains("virtiofs") {
+                kind = .bind
+            } else if presentKeys.contains("volume") {
+                let volumeType = try? typeContainer.decode(VolumeType.self, forKey: AnyKey(stringValue: "volume")!)
+                kind = .volume(name: volumeType?.name)
+            } else if presentKeys.contains("tmpfs") {
+                kind = .tmpfs
+            } else {
+                kind = .unknown(presentKeys.sorted().joined(separator: ","))
+            }
+        }
+
+        self.init(destination: destination, source: source, options: options, kind: kind)
+    }
+}
+
 /// Full detail for one container (`container inspect <id>` — no `--format`
 /// flag, emits JSON unconditionally; spike S2 finding #7). Shares the
 /// `configuration`/`status` nested shape with `ContainerSummary`.
-///
-/// `mounts` is deliberately omitted — S2 only ever observed an empty array,
-/// so the real shape is unverified; add it additively once a populated
-/// capture exists.
 public struct ContainerDetail: Sendable, Equatable {
     public let id: String
     public let status: String
@@ -97,6 +176,9 @@ public struct ContainerDetail: Sendable, Equatable {
     public let stopSignal: String?
     public let useInit: Bool?
     public let readOnly: Bool?
+    /// Additive P1A implementation field (defaulted for source
+    /// compatibility) — decoded from `configuration.mounts[]`.
+    public let mounts: [MountDetail]
 
     public init(
         id: String,
@@ -113,7 +195,8 @@ public struct ContainerDetail: Sendable, Equatable {
         resources: Resources? = nil,
         stopSignal: String? = nil,
         useInit: Bool? = nil,
-        readOnly: Bool? = nil
+        readOnly: Bool? = nil,
+        mounts: [MountDetail] = []
     ) {
         self.id = id
         self.status = status
@@ -130,6 +213,7 @@ public struct ContainerDetail: Sendable, Equatable {
         self.stopSignal = stopSignal
         self.useInit = useInit
         self.readOnly = readOnly
+        self.mounts = mounts
     }
 
     public var runState: ContainerRunState {
@@ -145,7 +229,7 @@ extension ContainerDetail: Decodable {
         case state, startedDate, networks
     }
     private enum ConfigurationKeys: String, CodingKey {
-        case creationDate, image, labels, publishedPorts, dns, platform, resources, stopSignal, useInit, readOnly
+        case creationDate, image, labels, publishedPorts, dns, platform, resources, stopSignal, useInit, readOnly, mounts
     }
     private enum ImageKeys: String, CodingKey {
         case reference, descriptor
@@ -174,6 +258,7 @@ extension ContainerDetail: Decodable {
         var stopSignal: String?
         var useInit: Bool?
         var readOnly: Bool?
+        var mounts: [MountDetail] = []
 
         if let configuration = try? container.nestedContainer(keyedBy: ConfigurationKeys.self, forKey: .configuration) {
             createdAt = try configuration.decodeIfPresent(Date.self, forKey: .creationDate)
@@ -185,6 +270,7 @@ extension ContainerDetail: Decodable {
             stopSignal = try configuration.decodeIfPresent(String.self, forKey: .stopSignal)
             useInit = try configuration.decodeIfPresent(Bool.self, forKey: .useInit)
             readOnly = try configuration.decodeIfPresent(Bool.self, forKey: .readOnly)
+            mounts = (try? configuration.decode([MountDetail].self, forKey: .mounts)) ?? []
 
             if let imageContainer = try? configuration.nestedContainer(keyedBy: ImageKeys.self, forKey: .image) {
                 imageReference = try imageContainer.decodeIfPresent(String.self, forKey: .reference)
@@ -209,7 +295,8 @@ extension ContainerDetail: Decodable {
             resources: resources,
             stopSignal: stopSignal,
             useInit: useInit,
-            readOnly: readOnly
+            readOnly: readOnly,
+            mounts: mounts
         )
     }
 }

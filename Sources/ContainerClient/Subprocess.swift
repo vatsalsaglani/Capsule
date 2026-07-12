@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public struct SubprocessResult: Sendable {
@@ -22,7 +23,8 @@ public enum Subprocess {
     public static func run(
         executablePath: String,
         arguments: [String],
-        timeout: Duration = .seconds(60)
+        timeout: Duration = .seconds(60),
+        killEscalationGrace: Duration = .seconds(5)
     ) async throws -> SubprocessResult {
         guard FileManager.default.isExecutableFile(atPath: executablePath) else {
             throw SubprocessError.executableNotFound(executablePath)
@@ -58,10 +60,36 @@ public enum Subprocess {
                         coordinator.install(continuation)
                     }
                 } onCancel: {
-                    // TODO(M1): escalate SIGTERM → SIGKILL if the process
-                    // ignores terminate() (matters for `build`, plan spike S5).
+                    // SIGTERM → 5s grace → SIGKILL if the process ignores
+                    // terminate() (plan spike S5, docs/learnings/
+                    // 2026-07-13-build-cancellation.md). General
+                    // defense-in-depth for every `Subprocess`-spawned child,
+                    // not `build`-specific — S5 found nothing that needed it,
+                    // but nothing guarantees a future child always honors
+                    // SIGTERM promptly.
                     let process = processBox.value
-                    if process.isRunning { process.terminate() }
+                    ProcessEscalation.terminateWithEscalation(
+                        processIdentifier: process.processIdentifier,
+                        terminate: { if process.isRunning { process.terminate() } },
+                        grace: killEscalationGrace
+                    ) {
+                        // Fallback for a pathological case the grace/SIGKILL
+                        // alone doesn't cover: a killed process can still
+                        // leave the pipes open if a *grandchild* inherited
+                        // the write end of stdout/stderr (e.g. a trapping
+                        // shell that forked a long-running child before
+                        // dying) — the coordinator's EOF rendezvous would
+                        // then never complete on its own, even though the
+                        // process this call cares about is already dead.
+                        // Give real EOF one short extra window, then force
+                        // the rendezvous with whatever was captured so this
+                        // call still returns promptly instead of blocking
+                        // until that unrelated descendant exits on its own.
+                        Task.detached {
+                            try? await Task.sleep(for: .milliseconds(300))
+                            coordinator.forceResolveIfStillPending(fallbackExitCode: 137)
+                        }
+                    }
                 }
             }
             group.addTask {
@@ -134,9 +162,53 @@ private final class RunCoordinator: @unchecked Sendable {
             continuation.resume(returning: result)
         }
     }
+
+    /// Cancellation-path fallback only (see call site in `Subprocess.run`):
+    /// resolves the continuation with whatever has been captured so far,
+    /// even if a stream never reached EOF. A no-op if the rendezvous already
+    /// completed normally.
+    func forceResolveIfStillPending(fallbackExitCode: Int32) {
+        let ready: (CheckedContinuation<SubprocessResult, Never>, SubprocessResult)? = lock.withLock {
+            guard let continuation else { return nil }
+            self.continuation = nil
+            let code = exitCode ?? fallbackExitCode
+            return (continuation, SubprocessResult(exitCode: code, stdout: stdout, stderr: stderr))
+        }
+        if let (continuation, result) = ready {
+            continuation.resume(returning: result)
+        }
+    }
 }
 
 private final class UncheckedSendableBox<Value>: @unchecked Sendable {
     let value: Value
     init(_ value: Value) { self.value = value }
+}
+
+/// Shared SIGTERM→grace→SIGKILL escalation (plan spike S5). `terminate` fires
+/// synchronously and immediately (e.g. `Process.terminate()`, or a direct
+/// `kill(pid, SIGTERM)` when the caller has no live `Process` handle to touch
+/// safely, as in `SubprocessLineStream`). The escalation itself runs in a
+/// detached task that captures **only `pid` (`Int32`)** — never a `Process` —
+/// so it never needs `@unchecked Sendable` to cross into an unstructured task.
+enum ProcessEscalation {
+    static func terminateWithEscalation(
+        processIdentifier pid: Int32,
+        terminate: () -> Void,
+        grace: Duration,
+        afterEscalation: (@Sendable () -> Void)? = nil
+    ) {
+        terminate()
+        Task.detached {
+            try? await Task.sleep(for: grace)
+            // Signal 0 is the POSIX liveness probe: no signal is sent, but
+            // `kill` still fails with ESRCH if the pid is gone — tolerate the
+            // process already having exited on its own during the grace
+            // window.
+            if kill(pid, 0) == 0 {
+                kill(pid, SIGKILL)
+            }
+            afterEscalation?()
+        }
+    }
 }

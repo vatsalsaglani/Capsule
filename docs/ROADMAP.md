@@ -40,7 +40,8 @@ survives runtime restarts and CLI absence gracefully.
 - [x] `capsule doctor` (binary, version, apiserver status, GitHub update check)
 - [x] `capsule ls`; app skeleton: sidebar, live-polling Containers screen, menu-bar extra stub
 - [x] P1A Contract PR: `ContainerRuntime` widened to the full system/containers/images/volumes/networks surface, `RunSpec`, `RuntimeModels` DTOs decoded against verbatim S2 JSON, `ContainerClientTestSupport`'s `FakeContainerRuntime` — signatures frozen; `CLIProcessClient` bodies beyond the original five (+`systemStatus`) are `notImplemented` stubs pending the P1A implementation PR
-- [ ] Poller → EventBus → synthesized `RuntimeEvent`s (replace the ViewModel's direct polling loop)
+- [x] P1A implementation PR: `CLIProcessClient`'s remaining 17 methods get real bodies (`RunSpecArgvBuilder`'s golden-tested `create` argv, `SubprocessLineStream` for `logs`/`pullImage`, poll-loop `stats`); `Subprocess` SIGTERM→grace→SIGKILL escalation; additive `ContainerDetail.mounts`/`MountDetail`; `RuntimeGateway` decorator serializing same-resource mutations
+- [x] Poller → EventBus → synthesized `RuntimeEvent`s (`RuntimePoller`, replaces the ViewModel's direct polling loop — app-side wiring is P1B)
 - [ ] Containers screen: inspect detail, logs (follow), stats sparkline, `container cp`, open-in-browser from port mappings
 - [ ] Images screen: list, pull with progress, tag, push, delete, prune, registry login
 - [ ] System screen: runtime status/versions, `system df`, start/stop runtime, log viewer

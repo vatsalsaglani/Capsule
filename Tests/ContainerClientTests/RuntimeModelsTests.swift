@@ -76,6 +76,81 @@ import Testing
     #expect(detail.readOnly == false)
     #expect(detail.startedAt != nil)
     #expect(detail.createdAt != nil)
+    #expect(detail.mounts.isEmpty)
+}
+
+// MARK: - MountDetail / ContainerDetail.mounts
+
+@Test func mountDetailDecodesBindVolumeAndTmpfsShapes() throws {
+    // Populated `configuration.mounts[]` shape (verified live probe, P1A
+    // implementation PR — corrects the Contract PR's "S2 only ever observed
+    // an empty array" note). One bind rw, one bind ro, one volume rw, one
+    // volume ro, one tmpfs — covers every `Kind` case and both read-only
+    // states.
+    let json = Data("""
+    [
+      {"destination":"/data","source":"/host/data","options":[],"type":{"virtiofs":{}}},
+      {"destination":"/ro","source":"/host/ro","options":["ro"],"type":{"virtiofs":{}}},
+      {"destination":"/vol","source":"/Users/x/volumes/app-vol/volume.img","options":[],"type":{"volume":{"name":"app-vol","format":"ext4","cache":"auto","sync":"full"}}},
+      {"destination":"/vol-ro","source":"/Users/x/volumes/app-vol-ro/volume.img","options":["ro"],"type":{"volume":{"name":"app-vol-ro","format":"ext4","cache":"auto","sync":"full"}}},
+      {"destination":"/tmp/scratch","source":"tmpfs","options":[],"type":{"tmpfs":{}}}
+    ]
+    """.utf8)
+
+    let mounts = try RuntimeJSON.makeDecoder().decode([MountDetail].self, from: json)
+    #expect(mounts.count == 5)
+
+    #expect(mounts[0].destination == "/data")
+    #expect(mounts[0].source == "/host/data")
+    #expect(mounts[0].kind == .bind)
+    #expect(mounts[0].isReadOnly == false)
+
+    #expect(mounts[1].destination == "/ro")
+    #expect(mounts[1].kind == .bind)
+    #expect(mounts[1].isReadOnly == true)
+
+    #expect(mounts[2].destination == "/vol")
+    #expect(mounts[2].kind == .volume(name: "app-vol"))
+    #expect(mounts[2].isReadOnly == false)
+
+    #expect(mounts[3].destination == "/vol-ro")
+    #expect(mounts[3].kind == .volume(name: "app-vol-ro"))
+    #expect(mounts[3].isReadOnly == true)
+
+    #expect(mounts[4].destination == "/tmp/scratch")
+    #expect(mounts[4].source == "tmpfs")
+    #expect(mounts[4].kind == .tmpfs)
+    #expect(mounts[4].isReadOnly == false)
+}
+
+@Test func mountDetailUnrecognizedTypeKeySurfacesAsUnknown() throws {
+    let json = Data("""
+    {"destination":"/weird","source":null,"options":[],"type":{"somethingNew":{}}}
+    """.utf8)
+    let mount = try RuntimeJSON.makeDecoder().decode(MountDetail.self, from: json)
+    #expect(mount.kind == .unknown("somethingNew"))
+}
+
+@Test func containerDetailDecodesPopulatedMounts() throws {
+    let json = Data("""
+    {
+      "configuration": {
+        "id": "s2-probe",
+        "mounts": [
+          {"destination":"/data","source":"/host/data","options":[],"type":{"virtiofs":{}}},
+          {"destination":"/vol-ro","source":"/Users/x/volumes/app-vol-ro/volume.img","options":["ro"],"type":{"volume":{"name":"app-vol-ro"}}}
+        ]
+      },
+      "id": "s2-probe",
+      "status": { "state": "running" }
+    }
+    """.utf8)
+
+    let detail = try RuntimeJSON.makeDecoder().decode(ContainerDetail.self, from: json)
+    #expect(detail.mounts.count == 2)
+    #expect(detail.mounts[0].kind == .bind)
+    #expect(detail.mounts[1].kind == .volume(name: "app-vol-ro"))
+    #expect(detail.mounts[1].isReadOnly == true)
 }
 
 // MARK: - StatsSample

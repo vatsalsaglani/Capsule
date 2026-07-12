@@ -180,9 +180,20 @@ output instead of guesses. Machine: macOS 26 (Darwin 25.1.0), Apple silicon.
    ```
    Flat object, byte/usec units (not the table's human-formatted
    `"26.43 MiB"` strings) — decode directly, no unit-string parsing needed.
-   Without `--no-stream`, `stats` streams indefinitely (one JSON array per
-   tick) — full streaming-cost characterization is S4's job; this is only
-   the light-touch shape confirmation the S2 brief asked for.
+   **Correction (P1A implementation PR, live probe):** this note originally
+   claimed "without `--no-stream`, `stats` streams indefinitely (one JSON
+   array per tick)" — that is **wrong**. Verified against a live 25-second
+   trial: streaming-mode `container stats --format json <id>` (no
+   `--no-stream`) emits exactly **one** JSON array on stdout and then goes
+   permanently silent — it does not tick again, and does not exit either, so
+   there is no working long-lived streaming mode to consume at all. P1A's
+   `CLIProcessClient.stats` therefore implements `stats` as a **poll loop**
+   over one-shot `container stats --no-stream --format json […]` calls on an
+   interval (default 2s, configurable via `CLIProcessClient`'s
+   `statsInterval` init param) rather than attempting to read a genuine
+   stream. Full streaming-cost characterization was S4's job, but this
+   specific "does streaming mode even tick more than once" question is now
+   answered and the earlier guess retracted.
 
 10. **`container system df` supports `--format json`** — exists and works,
     resolving the earlier "does it exist?" open question:
