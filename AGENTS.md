@@ -74,7 +74,7 @@ out to be wrong, correct it in place and say what changed.
 
 ## References — learned nuances (grows over time)
 
-- [`docs/learnings/2026-07-12-runtime-cli-observations.md`](docs/learnings/2026-07-12-runtime-cli-observations.md) — `container` v1.1.0 ground truth: JSON casing/shape, `--format` values, empty-list behavior, version-line parsing; which model fields are still S2-unverified
+- [`docs/learnings/2026-07-12-runtime-cli-observations.md`](docs/learnings/2026-07-12-runtime-cli-observations.md) — `container` v1.1.0 ground truth: JSON casing/shape, `--format` values (incl. which commands lack it — none found so far), empty-list behavior, version-line parsing; populated `container list`/`inspect` shape verified (S2, 2026-07-13) with the `ContainerSummary` tightening list P1A applies
 - [`docs/learnings/2026-07-12-swift-packaging-notes.md`](docs/learnings/2026-07-12-swift-packaging-notes.md) — monorepo/XcodeGen layout, YAML Norway problem in compose decoding, Process-under-Swift-6 subprocess pattern, no-sandbox decision, app typecheck without Xcode
 - [`docs/learnings/2026-07-13-container-dns-discovery.md`](docs/learnings/2026-07-13-container-dns-discovery.md) — bare-name DNS never resolves (either network type); `--dns-search`/`--dns-domain` plumb into `resolv.conf` but don't help; hosts injection works non-sudo (S1 decision); `system dns create` sudo wall; `system property` has no `set`; `inspect` resolved-IP lives under `status`, not `configuration`; one-time custom-network L3 reliability wedge under container churn
 

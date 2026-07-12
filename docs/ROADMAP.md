@@ -26,7 +26,7 @@ Findings go to `docs/spikes/` (see the README there). S1 decides the service
 discovery design (§4.4) and blocks Phase 2 planning details.
 
 - [x] **S1 DNS/networks** *(decided 2026-07-13)* — bare-name DNS fails on both custom and default networks (`NXDOMAIN`); `--dns-search`/`--dns-domain` plumb into `resolv.conf` but don't help. Hosts injection verified non-sudo and ships as the default discovery mechanism; the search-domain primary path is sudo-gated (`system dns create`) and stays unverified pending a human. See [spike](spikes/S1-dns-service-discovery.md) and [learnings](learnings/2026-07-13-container-dns-discovery.md).
-- [x] **S2 `--format json` coverage** *(seeded 2026-07-12)* — v1.1.0 confirmed; lowerCamelCase nested-`configuration` shape verified for `image list`; `container list` shape still needs a populated runtime. See [learnings](learnings/2026-07-12-runtime-cli-observations.md).
+- [x] **S2 `--format json` coverage** *(fully verified 2026-07-13 with a populated runtime)* — populated `container list` shape captured; no table-only commands found (`system status`/`system df`/`stats` all support JSON; `inspect` family emits JSON unconditionally, no `--format` flag); `ContainerSummary` tightening list (ports, labels, networks, status) handed off to P1A. See [spike](spikes/S2-json-coverage.md) and [learnings](learnings/2026-07-12-runtime-cli-observations.md).
 - [ ] **S3 PTY/exec** — SwiftTerm + `container exec -it` interactive quality (resize, colors, ctrl-c).
 - [ ] **S4 stats streaming** — `stats` output format, cost of polling 10 containers.
 - [ ] **S5 build streaming + cancel** — SIGINT semantics of `container build`; wire SIGKILL escalation into `Subprocess`.
@@ -95,5 +95,5 @@ machine` first-class UX · Sparkle auto-updates · plugin story.
 ## Top risks (watch actively)
 
 1. **S1 fails (confirmed 2026-07-13)** — bare-hostname DNS doesn't work container-to-container on either network type → hosts-injection fallback (verified non-sudo) is the shipping mechanism for Phase 2; adds a per-restart reconciliation step to the supervisor. See [S1 spike](spikes/S1-dns-service-discovery.md).
-2. **JSON gaps** — some commands lack `--format json` → pin CLI version, contribute upstream PRs, keep table-parser fallback behind a version check.
+2. **JSON gaps (resolved 2026-07-13, S2)** — no table-only commands found across `list`/`inspect`/`stats`/`system df`/`system status`/`volume`/`network`/`image` on 1.1.0; `inspect` family emits JSON unconditionally (no `--format` needed or accepted). No table-parser fallback required for anything probed so far — still pin the CLI version and re-check if a future surface (e.g. `container builder status`, S5) proves table-only. See [S2 spike](spikes/S2-json-coverage.md).
 3. **Per-VM memory pressure** — many containers hold host memory → surface memory prominently in UI, "restart heavy containers" affordance.
