@@ -81,6 +81,15 @@ Apple silicon.
    but flagging as a runtime reliability caveat worth re-testing if P1B/P3
    surfaces intermittent connectivity reports from users.
 
+9. **`container run`/`container create` on 1.1.0 have no `--add-host`-style
+   flag — exec append (`container exec <c> sh -c 'echo ... >> /etc/hosts'`)
+   is the only non-sudo per-entry hosts-write path.** Verified via
+   `container run --help` / `container create --help` grep: 48 options
+   total, only `-p`/`--publish` and `--publish-socket` match a "host"
+   substring search — no `--add-host`, `--hosts-file`, or equivalent. This
+   is load-bearing: it's *why* exec-append (rather than a run-time flag) is
+   the transport for hosts injection.
+
 ## Consequences
 
 - P2A (compose engine) implements service discovery via **hosts injection**,

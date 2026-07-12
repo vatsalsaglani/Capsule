@@ -213,6 +213,13 @@ anything with container names at all on 1.1.0; `--dns-search`/`--dns-domain`
 only affect musl's client-side query expansion, which is futile against an
 upstream that never had the records.
 
+Also confirmed: **`container run`/`container create` on 1.1.0 have no
+`--add-host`-style flag** (48 options total; only `-p`/`--publish` and
+`--publish-socket` match a "host" grep) — see
+[learnings finding #9](../learnings/2026-07-13-container-dns-discovery.md).
+This is why hosts injection uses `container exec` append as its transport,
+not a `run`-time flag.
+
 ### 6. Fallback A — hosts injection (non-sudo)
 
 ```
@@ -373,6 +380,46 @@ capability gap).
      supervisor work per plan §4.4/§4.5 (`WaitStarted` → hosts-injection
      step), consistent with AGENTS rule 6 (supervisor stays serializable/
      agent-ready; this is just another reconciliation step it owns).
+
+   **Three things P2A must know about this transport (added 2026-07-13,
+   post sign-off addendum — none of these change the mechanism):**
+
+   - **No `run`-time flag exists.** `container run`/`container create` on
+     1.1.0 have no `--add-host` or any hosts-file flag (verified: 48 options,
+     only `-p`/`--publish` and `--publish-socket` match a "host" grep — see
+     [learnings finding #9](../learnings/2026-07-13-container-dns-discovery.md)).
+     `container exec ... sh -c 'echo ... >> /etc/hosts'` is therefore the
+     *only* non-sudo per-entry hosts-write path available — this is why
+     injection is exec-based rather than a `run` flag.
+   - **Shell-less / read-only targets break exec injection.** It requires the
+     target container to have a shell and a writable `/etc/hosts`.
+     Distroless/static images and any future `read_only: true` support break
+     this transport. The spike only injected into `alpine` (musl-libc, has
+     `sh`, writable filesystem) — this was never tested against a
+     shell-less or read-only image. P2A's `SupportReport`/
+     `compose config --report` must define **loud** per-container behavior
+     when injection fails: warn, name the affected container, and state
+     explicitly that peers will not resolve it by name (per AGENTS rules
+     4/10 — no silent dropping).
+   - **Boot-time race.** Injection can only happen after the target
+     container is already running (needs its IP from `inspect`), so a
+     dependent's PID 1 may attempt to resolve `db` before the exec lands —
+     even with correct DAG ordering from `depends_on`. This is a real
+     failure mode for apps that don't retry DNS/connect failures at startup.
+     Mitigation: inject as the *immediate* post-`Start` step (minimize the
+     window) and document the caveat in `compose config --report`/docs — not
+     eliminated, just narrowed. Flagging as an **open P2A experiment** (not
+     decided here): bind-mounting a Capsule-generated hosts file over
+     `/etc/hosts` at `run` time, which would eliminate both the race *and*
+     the shell-less limitation above, if virtiofs write-propagation
+     cooperates (unverified — P2A's job to spike if the exec-race proves
+     troublesome in practice). The shipping *mechanism* stays "hosts
+     injection" either way; only the *transport* (exec-append vs.
+     mount-time file) is open for refinement.
+   - **CIDR-strip note.** `status.networks[].ipv4Address` is CIDR-form
+     (e.g. `"192.168.65.4/24"`, per the `inspect` capture above) — the `/24`
+     suffix **must** be stripped before writing to `/etc/hosts`; nobody
+     should ship a literal `192.168.65.4/24 db` line.
 
 3. **Naming tension (§4.3/AGENTS rule 5 vs §4.4 name=service assumption):**
    **Both are satisfied without contradiction.** AGENTS rule 5's deterministic

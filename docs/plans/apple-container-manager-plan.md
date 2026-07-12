@@ -204,6 +204,13 @@ Names deterministic: `<project>-<service>-<n>`; project = dir name unless `name:
 
 ### 4.4 Service discovery — the one genuinely open design problem
 
+**Decided 2026-07-13 (S1):** hosts injection ships as the always-on default
+(non-sudo, verified); the DNS-search-domain path is sudo-gated (`sudo
+container system dns create capsule`) and unverified — demoted to an
+optional upgrade. See `docs/spikes/S1-dns-service-discovery.md`. (The
+"primary"/"Fallback A" ordering below predates that decision and is kept
+for historical context; do not treat it as current plan of record.)
+
 Compose apps expect bare `db:5432`. Plan of record, in order:
 
 1. **Spike S1 (do this first, ~1 day):** two containers on one user-defined network — test what resolves out of the box: `<name>`, `<name>.<domain>`? The runtime configures container DNS; behavior on custom networks must be verified empirically on macOS 26.
