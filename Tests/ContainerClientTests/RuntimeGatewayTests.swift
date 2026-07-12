@@ -54,6 +54,8 @@ private actor OrderRecordingRuntime: ContainerRuntime {
         let empty = ResourceUsage(total: 0, active: 0, sizeInBytes: 0, reclaimableBytes: 0)
         return SystemDiskUsage(containers: empty, images: empty, volumes: empty)
     }
+    func systemStart() async throws {}
+    func systemStop() async throws {}
     func inspectContainer(id: String) async throws -> ContainerDetail { ContainerDetail(id: id, status: "running") }
     func killContainer(id: String, signal: String) async throws {}
     func logs(id: String, follow: Bool, tail: Int?) async throws -> AsyncThrowingStream<LogLine, Error> {

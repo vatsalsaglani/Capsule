@@ -18,6 +18,7 @@ let package = Package(
         .library(name: "ProjectStore", targets: ["ProjectStore"]),
         .library(name: "EventBus", targets: ["EventBus"]),
         .library(name: "TerminalKit", targets: ["TerminalKit"]),
+        .library(name: "AppCore", targets: ["AppCore"]),
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
@@ -39,6 +40,7 @@ let package = Package(
         .target(name: "Supervisor", dependencies: ["ContainerClient"]),
         .target(name: "ProjectStore"),
         .target(name: "TerminalKit"),
+        .target(name: "AppCore", dependencies: ["ContainerClient", "EventBus"]),
         .executableTarget(name: "CapsuleCLI", dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             "ContainerClient",
@@ -51,5 +53,6 @@ let package = Package(
         .testTarget(name: "ComposeSpecTests", dependencies: ["ComposeSpec"]),
         .testTarget(name: "ComposePlannerTests", dependencies: ["ComposePlanner"]),
         .testTarget(name: "SupervisorTests", dependencies: ["Supervisor"]),
+        .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "ContainerClient", "ContainerClientTestSupport", "EventBus"]),
     ]
 )

@@ -21,9 +21,10 @@ import Foundation
 /// `deleteVolume`, `createNetwork`/`deleteNetwork`.
 ///
 /// **What's pass-through (concurrent):** every list, `inspectContainer`,
-/// `systemStatus`, `systemDiskUsage`, `cliVersion`, `logs`, `exec`, `stats`,
-/// and `pullImage` — none of these mutate shared resource state on their
-/// own, so there is nothing to order them against.
+/// `systemStatus`, `systemDiskUsage`, `systemStart`, `systemStop`,
+/// `cliVersion`, `logs`, `exec`, `stats`, and `pullImage` — none of these
+/// mutate shared resource state on their own, so there is nothing to order
+/// them against.
 ///
 /// **Accepted residual race:** `pullImage` is pass-through (a long-lived
 /// stream), so a concurrent `deleteImage` for the *same* reference is not
@@ -76,6 +77,14 @@ public actor RuntimeGateway: ContainerRuntime {
 
     public func systemDiskUsage() async throws -> SystemDiskUsage {
         try await base.systemDiskUsage()
+    }
+
+    public func systemStart() async throws {
+        try await base.systemStart()
+    }
+
+    public func systemStop() async throws {
+        try await base.systemStop()
     }
 
     // MARK: - Containers

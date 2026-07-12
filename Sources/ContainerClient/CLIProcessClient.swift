@@ -52,6 +52,14 @@ public struct CLIProcessClient: ContainerRuntime {
         try await invokeJSON(["system", "df"])
     }
 
+    public func systemStart() async throws {
+        try await invoke(["system", "start"])
+    }
+
+    public func systemStop() async throws {
+        try await invoke(["system", "stop"])
+    }
+
     public func listContainers(all: Bool) async throws -> [ContainerSummary] {
         var arguments = ["list"]
         if all { arguments.append("--all") }

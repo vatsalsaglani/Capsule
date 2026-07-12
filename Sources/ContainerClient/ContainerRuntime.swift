@@ -23,6 +23,15 @@ public protocol ContainerRuntime: Sendable {
     /// Backing command: `container system df --format json`.
     func systemDiskUsage() async throws -> SystemDiskUsage
 
+    /// Backing command: `container system start`. System-wide (not scoped to
+    /// a resource id), so `RuntimeGateway` treats this as pass-through rather
+    /// than serialized (P1B B0 addendum).
+    func systemStart() async throws
+
+    /// Backing command: `container system stop`. System-wide, pass-through
+    /// (P1B B0 addendum).
+    func systemStop() async throws
+
     // MARK: Containers
 
     /// Backing command: `container list [--all] --format json`.

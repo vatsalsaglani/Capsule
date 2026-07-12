@@ -10,7 +10,7 @@ public actor FakeContainerRuntime: ContainerRuntime {
     /// One case per `ContainerRuntime` method (the source of truth for
     /// `setError`/`clearError` targeting).
     public enum Operation: String, Sendable, CaseIterable {
-        case cliVersion, systemStatus, systemDiskUsage
+        case cliVersion, systemStatus, systemDiskUsage, systemStart, systemStop
         case listContainers, inspectContainer, createContainer, startContainer
         case stopContainer, killContainer, deleteContainer, logs, exec, stats
         case listImages, pullImage, deleteImage, tagImage
@@ -24,6 +24,8 @@ public actor FakeContainerRuntime: ContainerRuntime {
         case cliVersion
         case systemStatus
         case systemDiskUsage
+        case systemStart
+        case systemStop
         case listContainers(all: Bool)
         case inspectContainer(id: String)
         case createContainer(RunSpec)
@@ -177,6 +179,14 @@ public actor FakeContainerRuntime: ContainerRuntime {
     public func systemDiskUsage() async throws -> SystemDiskUsage {
         try record(.systemDiskUsage, operation: .systemDiskUsage)
         return diskUsageValue
+    }
+
+    public func systemStart() async throws {
+        try record(.systemStart, operation: .systemStart)
+    }
+
+    public func systemStop() async throws {
+        try record(.systemStop, operation: .systemStop)
     }
 
     public func listContainers(all: Bool) async throws -> [ContainerSummary] {
