@@ -147,8 +147,21 @@ public enum ContainerBinaryLocator {
     public static func locate(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> String? {
+        // The override is validated the same way the other two candidates
+        // are (P1D fix, 2026-07-13): previously an override pointing at a
+        // nonexistent path was trusted blindly and returned as-is, so every
+        // caller downstream of `locate()` (`doctor`, `ls`, `runtime status`,
+        // `RuntimeSession`) saw a bogus "found" binary path and then a raw
+        // `SubprocessError`/`Process` failure instead of the clean
+        // `RuntimeError.binaryNotFound` guidance — exactly the
+        // `CAPSULE_CONTAINER_BIN=/nonexistent` smoke test this locator exists
+        // to support. An invalid override does not fall through to the real
+        // default path/`$PATH` search — its whole purpose is to let a caller
+        // pin (or, for tests, simulate the absence of) a specific binary
+        // deterministically, regardless of what's actually installed on the
+        // host.
         if let override = environment[environmentOverrideKey], !override.isEmpty {
-            return override
+            return FileManager.default.isExecutableFile(atPath: override) ? override : nil
         }
         if FileManager.default.isExecutableFile(atPath: defaultInstallPath) {
             return defaultInstallPath

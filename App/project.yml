@@ -33,6 +33,8 @@ targets:
         product: AppCore
       - package: CapsuleKit
         product: TerminalKit
+      - package: CapsuleKit
+        product: RuntimeInstaller
       - package: SwiftTerm
         product: SwiftTerm
       # Debug-only: backs the #if DEBUG scripted feel-prototype demo

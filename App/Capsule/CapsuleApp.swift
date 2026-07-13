@@ -1,4 +1,5 @@
 import AppCore
+import RuntimeInstaller
 import SwiftUI
 
 /// Owns the one `RuntimeSession` stop() call site. Per the P1B B1
@@ -34,6 +35,16 @@ final class CapsuleAppDelegate: NSObject, NSApplicationDelegate {
 struct CapsuleApp: App {
     @NSApplicationDelegateAdaptor(CapsuleAppDelegate.self) private var appDelegate
     @State private var session = RuntimeSession()
+    // Constructed at the app root (P1D) rather than folded into
+    // `RuntimeSession`: `RuntimeSession`'s construction already commits to a
+    // `ContainerRuntime` (or the permanent `.runtimeMissing` fallback) once
+    // at init and never re-locates the binary afterwards, but install/update
+    // checking must re-probe on every `refresh()` (re-check on activation —
+    // the binary can appear or change version *after* launch, once the user
+    // runs a downloaded installer outside Capsule). One shared instance
+    // still, matching the B1 "construct once" directive — just a sibling of
+    // `session`, not a member of it.
+    @State private var runtimeInstaller = RuntimeInstallerModel()
     #if DEBUG
     @State private var demoSession = ScriptedDemoSession()
     #endif
@@ -49,7 +60,9 @@ struct CapsuleApp: App {
         WindowGroup(id: "main") {
             RootView()
                 .environment(session)
+                .environment(runtimeInstaller)
                 .task { await session.start() }
+                .task { await runtimeInstaller.refresh() }
         }
 
         // Menu-bar extra (plan §3): runtime up/down, running count, stop-all —

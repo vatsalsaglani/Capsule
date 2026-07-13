@@ -14,6 +14,7 @@ struct CapsuleCommand: AsyncParsableCommand {
             ComposeCommand.self,
             ListCommand.self,
             DoctorCommand.self,
+            RuntimeCommand.self,
         ]
     )
 }

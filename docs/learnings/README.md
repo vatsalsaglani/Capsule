@@ -36,3 +36,5 @@ note and say so — don't delete history silently.
 - [2026-07-13 — swift-testing: `@Test` function names must be unique per target, not per file](2026-07-13-swift-testing-name-collisions.md)
 - [2026-07-13 — `container exec -it` PTY behavior + Terminal (P1C) integration path](2026-07-13-pty-exec-terminal.md)
 - [2026-07-13 — PTY spawn (`PTYExecSession`) vs. the `Subprocess`/`SubprocessLineStream` pattern](2026-07-13-pty-spawn-vs-subprocess.md)
+- [2026-07-13 — runtime installer: apple/container GitHub release shape (P1D)](2026-07-13-runtime-installer-release-assets.md)
+- [2026-07-13 — `ContainerBinaryLocator`'s override env var wasn't validated (P1D)](2026-07-13-binary-locator-override-validation.md)

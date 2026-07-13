@@ -19,6 +19,7 @@ let package = Package(
         .library(name: "EventBus", targets: ["EventBus"]),
         .library(name: "TerminalKit", targets: ["TerminalKit"]),
         .library(name: "AppCore", targets: ["AppCore"]),
+        .library(name: "RuntimeInstaller", targets: ["RuntimeInstaller"]),
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
@@ -51,6 +52,10 @@ let package = Package(
         // (P1C composition-root wiring, mirrors `makeDetailStore`/
         // `makeImagesStore`/`makeSystemStore`) — still no SwiftUI/SwiftTerm here.
         .target(name: "AppCore", dependencies: ["ContainerClient", "EventBus", "TerminalKit"]),
+        // P1D: runtime install/update evaluation + download handoff (never
+        // executes the installer, rule 7 AGENTS.md). No SwiftUI import here —
+        // App/Capsule/Onboarding/ is the thin frontend over this module.
+        .target(name: "RuntimeInstaller", dependencies: ["ContainerClient"]),
         .executableTarget(name: "CapsuleCLI", dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             "ContainerClient",
@@ -65,5 +70,6 @@ let package = Package(
         .testTarget(name: "SupervisorTests", dependencies: ["Supervisor"]),
         .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "ContainerClient", "ContainerClientTestSupport", "EventBus"]),
         .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "ContainerClient", "ContainerClientTestSupport"]),
+        .testTarget(name: "RuntimeInstallerTests", dependencies: ["RuntimeInstaller", "ContainerClient", "ContainerClientTestSupport"]),
     ]
 )
