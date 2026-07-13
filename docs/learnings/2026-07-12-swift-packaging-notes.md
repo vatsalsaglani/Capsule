@@ -42,6 +42,14 @@
    SwiftUI sources against built package modules — useful pre-commit check
    when xcodegen isn't installed.
 
+7. **`xcodebuild` can fail before evaluating Capsule when Xcode's private
+   frameworks are out of sync:** on 2026-07-13, project generation succeeded
+   but `xcodebuild` could not load `IDESimulatorFoundation` because its
+   expected `DVTDownloads` symbol was missing. This is a local Xcode install
+   failure, not a project diagnostic. Use the §6 `swiftc -typecheck` fallback
+   to verify app sources, and repair/update Xcode separately; do not change
+   Capsule build settings to chase the plug-in error.
+
 ## Consequences
 
 - Keep all new modules as targets in the root `Package.swift`.

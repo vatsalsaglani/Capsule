@@ -47,6 +47,7 @@ survives runtime restarts and CLI absence gracefully.
 - [x] System screen: runtime status/versions, `system df`, start/stop runtime, log viewer *(P1B B5/B7 — log viewer deliberately deferred: not on the frozen `ContainerRuntime` contract, honestly noted in-app, rule 10 AGENTS.md; status/df/start-stop are engine/store/compile-level complete — interactive click-through and VoiceOver spot-check are still open human gates)*
 - [x] Terminal: SwiftTerm over `container exec -it`, shell auto-detection, session tabs (add SwiftTerm dependency to TerminalKit) *(P1C — `PTYExecSession`/`ShellDetector`/`TerminalSessionManager` engine + `Tests/TerminalKitTests` (15 tests: two-session isolation, resize, cooperative-terminate incl. master-fd/pid teardown, SIGKILL fallback, shell-detection order/fallback/failure, manager open/close/switch/exited-state/watcher-lifecycle) all green headlessly against local `/bin/sh`, plus live-verified end to end against real `alpine`/`debian` containers (TERM propagation, resize, ctrl-c, two-container isolation, container-stop-while-attached → exit 137, no host/container orphans post-cleanup); App's `TerminalHostView`/`TerminalTabsView` (SwiftTerm `TerminalView`, not `LocalProcess`) compile-verified against the real SwiftTerm package + real CapsuleKit via a standalone SwiftPM probe (this environment's `xcodebuild` can't load its Simulator plugin, so that specific check substitutes for it) — **still open human gates:** live two-tab interactive typing into two containers in the actual running app, and an Xcode GUI build+run once `xcodebuild` works)*
 - [x] Runtime install/update UX: onboarding screen when CLI missing → download latest release `.pkg` from GitHub, guide install; update banner when `RuntimeUpdateChecker` finds a newer release *(P1D — `RuntimeUpdateChecker.evaluate()` pure comparison + `Sources/RuntimeInstaller/RuntimeInstallerModel` (presence/update-status/download-and-handoff, never executes the `.pkg`, injectable runtime/fetch/download seams) + `capsule runtime status` CLI + `App/Capsule/Onboarding/{OnboardingView,UpdateBanner}` wired at the app root into `RootView`/`CapsuleApp`, all engine/store/compile-level complete against the real 1.1.0 runtime and the real GitHub API shape (verified live, see learnings) — **still open human gates:** an actual onboarding-screen click-through, a real `.pkg` download + running the installer, and the update banner appearing against a genuinely newer release)*
+- [x] In-app CLI PATH setup: build the production `Sources/CapsuleCLI` frontend into `Capsule.app/Contents/Helpers/capsule`; System and runtime-missing onboarding surfaces safely inspect/install `/usr/local/bin/capsule`, preserve conflicts, confirm stale-link updates, and fall back to a copyable permission command without editing shell profiles or invoking sudo
 - [x] Menu-bar extra: runtime up/down, running count, stop-all *(P1B B6/B7 — engine/store/compile-level complete, fed by the shared `RuntimeSession`/`MenuBarStore`; interactive click-through (Stop All, Open Capsule) is still an open human gate)*
 - [ ] Feel prototype (plan §6.6): sidebar/list/inspector + one live-updating row + terminal, reviewed frame-by-frame — *sets the craft bar before UI build-out* *(P1B B2/B7 — the `#if DEBUG` `ScriptedDemoSession`/`FeelPrototypeDemoView` window compiles and drives the real Containers screen through genuine poll-driven state transitions; terminal now exists (P1C) but isn't wired into this prototype window yet; the frame-by-frame human review this line is named for hasn't happened — left unticked until that gate runs)*
 - [ ] Interactive onboarding/doctor screen in-app
@@ -58,29 +59,36 @@ survives runtime restarts and CLI absence gracefully.
 health/restart; Compose screen in the app.
 
 - [x] ComposeSpec: typed model for the supported subset, short/long syntax (ports, volumes), support report with fail-loud policy, interpolation utility, duration parsing
-- [x] ComposePlanner: DAG from `depends_on`, cycle detection, deterministic sequential plan, `compose plan`/`config` CLI
-- [ ] Wire interpolation + `.env`/`--env-file` into the parser (per-scalar, not raw text)
-- [ ] Implement S1 decision: service discovery (DNS search domains, else hosts-injection fallback)
-- [ ] ComposeRuntime: execute steps for real (volume/network create, `run -d` with labels `capsule.project/service/index/config-hash`, pulls with progress)
-- [ ] Config-hash reconciliation: recreate only changed services, restart dependents in DAG order; `--force-recreate`, `--no-deps`
-- [ ] Parallelize independent plan branches (pulls/builds concurrent, starts respect DAG)
-- [ ] `compose up -d / down [--volumes] / ps / logs [-f] / restart / stop / start / exec / build / pull`
-- [ ] ProjectStore: `project.json`, `resolved-compose.json`, `state.json`, per-service log spools
-- [ ] Compose screen in app: project list, per-service status, project logs, up/down/restart, plan viewer
+- [x] ComposePlanner: DAG from `depends_on`, cycle detection, deterministic layered plan, `compose plan`/`config` CLI
+- [x] Wire interpolation + `.env`/`--env-file` into the parser (per-scalar, not raw text)
+- [x] Implement S1 decision: service discovery via managed `/etc/hosts` injection before health gates and after starts; the fixed reconciliation runs as container-local UID 0 while user exec/probes retain the configured service identity
+- [x] ComposeRuntime: execute steps for real (volume/network create, `run -d` with labels `capsule.project/service/index/config-hash`, local-image detection, pull/build progress)
+- [x] Config-hash reconciliation: recreate only changed services, restart dependents in DAG order; `--force-recreate`, `--no-deps`
+- [x] Parallelize independent plan branches (infrastructure barrier first; pulls/builds concurrent; starts respect DAG)
+- [x] `compose up -d / down [--volumes] [--remove-orphans] / ps / logs [-f] / restart / stop / start / exec / build / pull`, plus `--quiet`, runtime-independent resolved `config --report`, layered `plan`, and bounded per-service terminal progress (responsive bars/icons/colors in a capable TTY; greppable plain fallback for pipes/CI)
+- [x] ProjectStore: versioned `project.json`, `resolved-compose.json`, `state.json`, exact source/env/project-override replay, atomic writes, bounded rotated per-service log spools
+- [x] Compose screen in app: ProjectStore + runtime-label discovery (including honest unavailable-source rows), project import/list, per-service status, bounded multiplexed logs, config/support report, up/down/restart, plan-before-apply viewer, surfaced progress/errors
+
+Real-runtime acceptance passed on `container` 1.1.0 (2026-07-13): the
+`basic-web-db.yaml` fixture reached PostgreSQL healthy, served nginx on
+`localhost:8080`, injected service hosts, retained its named volume across a
+plain down/up, and removed containers/network/volume to zero with
+`down --volumes --remove-orphans`.
 
 ## Phase 3 — Supervision & fidelity (2–3 weeks)
 
-- [ ] Healthchecks: exec-based probes, `starting → healthy/unhealthy` state machine, `service_healthy` gating (skeleton exists in `Supervisor`)
-- [ ] Restart policies wired to exit events with docker-compatible backoff (logic done + tested; needs the watcher)
-- [ ] Supervisor lives in whichever frontend ran `up` (v1); print the "supervision requires the Capsule agent" notice on CLI `-d`
-- [ ] Drift reconcile on attach: observed (by labels) vs desired (ProjectStore) → report → optional auto-heal
-- [ ] `.env` precedence edge cases; volumes/networks/builds/machines screens
+- [ ] Healthchecks: exec-based probes, `starting → healthy/unhealthy` state machine, `service_healthy` gating *(probe runner, correct `start_period` semantics, failure output, and live gating are complete; persisting/surfacing live health across frontend relaunch remains)*
+- [ ] Restart policies wired to exit events with docker-compatible backoff *(watcher + budget/backoff logic are implemented and tested; frontend residency/event wiring and user-stop integration remain; `container` 1.1.0 does not expose exit status, so exact `on-failure` remains honestly unavailable)*
+- [ ] Supervisor lives in whichever frontend ran `up` (v1); print the "supervision requires the Capsule agent" notice on CLI `-d` *(notice is complete; resident frontend supervision and app relaunch resumption remain)*
+- [ ] Drift reconcile on attach: observed (by labels) vs desired (ProjectStore) → report → optional auto-heal *(typed desired-vs-observed report is persisted and surfaced by `compose ps`; attach-time optional auto-heal remains)*
+- [ ] `.env` precedence edge cases; volumes/networks/builds/machines screens *(`.env` precedence plus Volumes/Networks are complete; Builds/Machines screens remain)*
+- [x] Volume and Network lifecycle in CapsuleKit, CLI, and app: list/inspect, reverse references/attachments, create, protected delete, prune, ownership, confirmations, and built-in-network protection
 - [ ] Dependency-graph visualization (SwiftUI Canvas)
 
 ## Phase 4 — Polish & public v0.1 (2 weeks) → `v0.1.0`
 
-- [ ] Design pass to plan §6 spec (motion, typography, color tokens, translucency rules)
-- [ ] Reduced-motion / reduced-transparency / increase-contrast audit; VoiceOver labels
+- [ ] Design pass to plan §6 spec (motion, typography, color tokens, translucency rules) *(Compose, Containers, Images, Volumes, and Networks now share Graphite & Indigo tokens, adaptive card/list modes, hover-local actions, selected states, exact destructive previews, and solid log surfaces; System/onboarding/menu-bar and the human frame-by-frame gate remain)*
+- [ ] Reduced-motion / reduced-transparency / increase-contrast audit; VoiceOver labels *(new collection surfaces use real labeled buttons, non-color state text, and reduce-motion-gated springs; full-app VoiceOver/contrast click-through remains a human gate)*
 - [ ] Crash/error reporting; honest compose-compatibility table in docs
 - [ ] Docs site, README screenshots, demo recording (`compose plan` is the demo)
 - [ ] Homebrew tap for the CLI; notarized dmg; Sparkle appcast groundwork
@@ -98,4 +106,4 @@ machine` first-class UX · Sparkle auto-updates · plugin story.
 
 1. **S1 fails (confirmed 2026-07-13)** — bare-hostname DNS doesn't work container-to-container on either network type → hosts-injection fallback (verified non-sudo) is the shipping mechanism for Phase 2; adds a per-restart reconciliation step to the supervisor. See [S1 spike](spikes/S1-dns-service-discovery.md).
 2. **JSON gaps (resolved 2026-07-13, S2)** — no table-only commands found across `list`/`inspect`/`stats`/`system df`/`system status`/`volume`/`network`/`image` on 1.1.0; `inspect` family emits JSON unconditionally (no `--format` needed or accepted). No table-parser fallback required for anything probed so far — still pin the CLI version and re-check if a future surface (e.g. `container builder status`, S5) proves table-only. See [S2 spike](spikes/S2-json-coverage.md).
-3. **Per-VM memory pressure** — many containers hold host memory → surface memory prominently in UI, "restart heavy containers" affordance.
+3. **Per-VM memory pressure** — many containers hold host memory → aggregate and per-container memory are now surfaced prominently while collection screens are visible; the dedicated "restart heavy containers" affordance remains.

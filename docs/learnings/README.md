@@ -26,7 +26,7 @@ note and say so — don't delete history silently.
 ## Index
 
 - [2026-07-12 — runtime CLI observations](2026-07-12-runtime-cli-observations.md)
-- [2026-07-12 — Swift/packaging notes](2026-07-12-swift-packaging-notes.md)
+- [2026-07-12 — Swift/packaging notes](2026-07-12-swift-packaging-notes.md) — includes the app `swiftc` fallback for local Xcode plug-in failures
 - [2026-07-13 — container DNS / service discovery](2026-07-13-container-dns-discovery.md)
 - [2026-07-13 — P1A Contract PR: `ContainerRuntime` design decisions](2026-07-13-container-runtime-contract.md)
 - [2026-07-13 — `container build` cancellation semantics](2026-07-13-build-cancellation.md)
@@ -38,3 +38,13 @@ note and say so — don't delete history silently.
 - [2026-07-13 — PTY spawn (`PTYExecSession`) vs. the `Subprocess`/`SubprocessLineStream` pattern](2026-07-13-pty-spawn-vs-subprocess.md)
 - [2026-07-13 — runtime installer: apple/container GitHub release shape (P1D)](2026-07-13-runtime-installer-release-assets.md)
 - [2026-07-13 — `ContainerBinaryLocator`'s override env var wasn't validated (P1D)](2026-07-13-binary-locator-override-validation.md)
+- [2026-07-13 — container inspect does not expose process exit status](2026-07-13-container-exit-status-gap.md)
+- [2026-07-13 — volume/network prune has no structured output](2026-07-13-resource-prune-contract.md)
+- [2026-07-13 — Compose live release blockers on container 1.1.0](2026-07-13-compose-live-release-blockers.md) — infrastructure barrier, exact-image pull skip, nonempty resource labels, and pre-health hosts scope
+- [2026-07-13 — ProjectStore path containment needs lexical and symlink-aware checks](2026-07-13-project-store-path-safety.md)
+- [2026-07-13 — Apple container volume roots contain `lost+found`; PostgreSQL needs a `PGDATA` subdirectory](2026-07-13-postgres-volume-lost-found.md)
+- [2026-07-13 — bundle the CLI in `Contents/Helpers`; safely manage `/usr/local/bin/capsule`](2026-07-13-bundled-cli-path-install.md)
+- [2026-07-13 — Compose pull progress grammar and bounded terminal rendering](2026-07-13-compose-pull-progress.md)
+- [2026-07-13 — Compose managed-hosts exec identity](2026-07-13-compose-hosts-exec-identity.md) — root-only maintenance without changing user exec/probe identity
+- [2026-07-13 — replaceable tasks need explicit lifetime ownership](2026-07-13-replaceable-stream-task-generation.md) — cancellation needs generation gating, and SwiftUI tasks tied to replaceable inputs need explicit view/task identity
+- [2026-07-13 — container registries do not standardize image logos](2026-07-13-container-image-logo-metadata.md) — use an optional provider and disk cache for public official-image logos; keep the local blue fallback
