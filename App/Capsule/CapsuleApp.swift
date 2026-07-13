@@ -56,6 +56,20 @@ struct CapsuleApp: App {
         #endif
     }
 
+    /// The menu-bar mark (plan §6). Resolved with a fallback chain so it works
+    /// in every build shape: the compiled asset catalog (`MenuBarIcon`, real
+    /// Xcode/xcodegen build), a loose `MenuBarIcon.png` in the bundle
+    /// (environments where `actool` can't compile the catalog), then the SF
+    /// Symbol as a last resort. Rendered as a template so the menu bar tints
+    /// it for light/dark automatically.
+    static let menuBarIcon: NSImage = {
+        let image = NSImage(named: "MenuBarIcon")
+            ?? Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png").flatMap(NSImage.init(contentsOf:))
+            ?? NSImage(systemSymbolName: "capsule.portrait.fill", accessibilityDescription: "Capsule")!
+        image.isTemplate = true
+        return image
+    }()
+
     var body: some Scene {
         WindowGroup(id: "main") {
             RootView()
@@ -68,8 +82,10 @@ struct CapsuleApp: App {
         // Menu-bar extra (plan §3): runtime up/down, running count, stop-all —
         // fed by the same shared `RuntimeSession`/`EventBus`, never a second
         // poller (see `RuntimeSession`'s doc comment).
-        MenuBarExtra("Capsule", systemImage: "capsule.portrait.fill") {
+        MenuBarExtra {
             MenuBarView(menuBar: session.menuBar)
+        } label: {
+            Image(nsImage: Self.menuBarIcon)
         }
 
         #if DEBUG
