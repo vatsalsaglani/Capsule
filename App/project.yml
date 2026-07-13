@@ -12,6 +12,9 @@ options:
 packages:
   CapsuleKit:
     path: ..
+  SwiftArgumentParser:
+    url: https://github.com/apple/swift-argument-parser.git
+    from: "1.5.0"
   # SwiftTerm is App-only (P1C, S3 decision): raw-PTY spawn means no
   # CapsuleKit target ever imports it — only `TerminalHostView.swift` does.
   # Resolution needs network; `Package.resolved` + this generated project
@@ -35,6 +38,12 @@ targets:
         product: TerminalKit
       - package: CapsuleKit
         product: RuntimeInstaller
+      - package: CapsuleKit
+        product: ComposeRuntime
+      - package: CapsuleKit
+        product: ProjectStore
+      - package: CapsuleKit
+        product: Supervisor
       - package: SwiftTerm
         product: SwiftTerm
       # Debug-only: backs the #if DEBUG scripted feel-prototype demo
@@ -42,6 +51,17 @@ targets:
       # that file once P4 polish lands (P1B B2+B3 commit note).
       - package: CapsuleKit
         product: ContainerClientTestSupport
+      # Build the production CLI from the same Sources/CapsuleCLI frontend as
+      # `swift run capsule`, then copy/sign it as nested code. Contents/MacOS
+      # is intentionally avoided: `Capsule` and `capsule` collide on the
+      # default case-insensitive macOS filesystem.
+      - target: CapsuleCommand
+        embed: true
+        link: false
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
     scheme:
       testTargets: []
     settings:
@@ -60,3 +80,29 @@ targets:
         # Deliberately NOT sandboxed: the app execs the `container` CLI and
         # talks to its XPC services, which App Sandbox breaks. Distribution is
         # Developer ID + notarization, not the Mac App Store.
+
+  CapsuleCommand:
+    type: tool
+    platform: macOS
+    sources:
+      - path: ../Sources/CapsuleCLI
+    dependencies:
+      - package: SwiftArgumentParser
+        product: ArgumentParser
+      - package: CapsuleKit
+        product: ContainerClient
+      - package: CapsuleKit
+        product: ComposeSpec
+      - package: CapsuleKit
+        product: ComposePlanner
+      - package: CapsuleKit
+        product: ComposeRuntime
+      - package: CapsuleKit
+        product: ProjectStore
+    settings:
+      base:
+        PRODUCT_NAME: capsule
+        SWIFT_VERSION: "6.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
