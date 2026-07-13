@@ -14,3 +14,5 @@ xcuserdata/
 
 # Tooling
 .claude/settings.local.json
+
+dist/

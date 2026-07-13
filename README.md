@@ -35,6 +35,9 @@ xcodegen generate --spec App/project.yml --project App
 open App/Capsule.xcodeproj
 ```
 
+See the [CLI command reference](docs/CLI.md) for every implemented command,
+option, default, and current Compose limitation.
+
 ## Run the pre-built app (unsigned)
 
 Every push to `main` builds `Capsule.app` via the **App Artifact** workflow and
