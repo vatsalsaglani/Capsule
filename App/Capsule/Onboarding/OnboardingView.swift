@@ -1,49 +1,59 @@
+import AppCore
 import RuntimeInstaller
 import SwiftUI
 
 /// Shown in place of the whole app shell when the `container` runtime can't
 /// be found (P1D). Explains what's missing and offers to download the
-/// signed installer package — **never** runs it. Rule 7 (AGENTS.md) is
-/// absolute: this view's only actions are "download" and "reveal/open"; the
-/// user runs the installer themselves in Finder/Installer.app.
+/// signed installer package. The runtime-installation flow **never** runs it:
+/// its only actions are "download" and "reveal/open", and the user runs the
+/// installer themselves in Finder/Installer.app (rule 7, AGENTS.md).
 struct OnboardingView: View {
     let model: RuntimeInstallerModel
+    @Environment(CapsuleCLIInstallStore.self) private var cliInstallStore
 
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "shippingbox")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(systemName: "shippingbox")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
 
-            VStack(spacing: 8) {
-                Text("Container Runtime Not Found")
-                    .font(.title2.weight(.semibold))
-                Text(
-                    "Capsule manages containers through Apple's `container` command-line "
-                        + "runtime, and it isn't installed (or Capsule couldn't find it)."
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
+                VStack(spacing: 8) {
+                    Text("Container Runtime Not Found")
+                        .font(.title2.weight(.semibold))
+                    Text(
+                        "Capsule manages containers through Apple's `container` command-line "
+                            + "runtime, and it isn't installed (or Capsule couldn't find it)."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+                }
+
+                searchedPathsNote
+
+                downloadSection
+
+                // Honest runtime-installation copy (rules 7 and 10, AGENTS.md).
+                Text("Capsule never installs the Apple container runtime for you—it only downloads its installer and hands it off. You run it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+
+                CommandLineToolSection(store: cliInstallStore)
+                    .frame(maxWidth: 560)
             }
-
-            searchedPathsNote
-
-            downloadSection
-
-            // Honest, load-bearing copy (rule 7 + rule 10, AGENTS.md) — never
-            // implies Capsule installs anything on the user's behalf.
-            Text("Capsule never installs anything for you — it only downloads the installer and hands it off. You run it.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
+            .padding(40)
+            .frame(maxWidth: .infinity)
         }
-        .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(CapsuleMotion.standard, value: phaseKey)
-        .task { await model.refresh() }
+        .task {
+            cliInstallStore.refresh()
+            await model.refresh()
+        }
     }
 
     private var searchedPathsNote: some View {

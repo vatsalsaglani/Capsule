@@ -16,15 +16,18 @@ struct UpdateBanner: View {
         if !isDismissed, case .updateAvailable(let current, let latest) = model.updateStatus {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
-                    Label("Runtime update available: \(current) → \(latest)", systemImage: "arrow.down.circle.fill")
+                    Label {
+                        Text(verbatim: "Runtime update available: \(current) → \(latest)")
+                    } icon: {
+                        Image(systemName: "arrow.down.circle.fill")
+                    }
                         .font(.callout.weight(.medium))
                         .foregroundStyle(Color(nsColor: .systemOrange))
                     Spacer()
-                    Button {
+                    Button("Dismiss", systemImage: "xmark") {
                         isDismissed = true
-                    } label: {
-                        Image(systemName: "xmark")
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .help("Dismiss")
                 }
