@@ -41,17 +41,22 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Locate + ad-hoc sign the app
+      - name: Locate + verify embedded CLI + ad-hoc sign the app
         id: pkg
         run: |
           set -euo pipefail
           APP="$(find build/Build/Products -maxdepth 2 -name 'Capsule.app' -type d | head -1)"
           test -n "$APP" || { echo "Capsule.app not found"; exit 1; }
           echo "Built: $APP"
+          CLI="$APP/Contents/Helpers/capsule"
+          test -x "$CLI" || { echo "Embedded capsule CLI missing or not executable"; exit 1; }
+          "$CLI" --version
+          "$CLI" --help >/dev/null
           # Ad-hoc sign so the bundle has a stable (self-)signature; downloaders
           # still strip quarantine per the README. This is NOT notarization.
           codesign --force --deep --sign - "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP" || true
+          codesign --verify --strict --verbose=2 "$CLI"
+          codesign --verify --deep --strict --verbose=2 "$APP"
           # ditto -k preserves the bundle + signature inside the zip.
           ditto -c -k --sequesterRsrc --keepParent "$APP" Capsule.app.zip
           echo "zip=Capsule.app.zip" >> "$GITHUB_OUTPUT"
