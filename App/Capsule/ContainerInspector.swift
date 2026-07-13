@@ -37,6 +37,7 @@ struct ContainerInspector: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .frame(maxWidth: .infinity)
             .padding(.horizontal)
             .padding(.vertical, 8)
 

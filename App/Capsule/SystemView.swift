@@ -11,6 +11,7 @@ import SwiftUI
 struct SystemView: View {
     let session: RuntimeSession
 
+    @Environment(CapsuleCLIInstallStore.self) private var cliInstallStore
     @State private var store: SystemStore?
 
     init(session: RuntimeSession) {
@@ -19,19 +20,25 @@ struct SystemView: View {
     }
 
     var body: some View {
-        Group {
-            if let store {
-                content(store: store)
-            } else {
-                ContentUnavailableView {
-                    Label("Runtime Not Found", systemImage: "gearshape.2")
-                } description: {
-                    Text(runtimeMissingMessage)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                CommandLineToolSection(store: cliInstallStore)
+
+                if let store {
+                    content(store: store)
+                } else {
+                    ContentUnavailableView {
+                        Label("Runtime Not Found", systemImage: "gearshape.2")
+                    } description: {
+                        Text(runtimeMissingMessage)
+                    }
                 }
             }
+            .padding()
         }
         .navigationTitle("System")
         .task {
+            cliInstallStore.refresh()
             await store?.refresh()
         }
     }
@@ -45,27 +52,24 @@ struct SystemView: View {
 
     @ViewBuilder
     private func content(store: SystemStore) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                switch store.phase {
-                case .loading:
-                    ProgressView("Loading…")
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 40)
-                case .failed(let message):
-                    ContentUnavailableView {
-                        Label("Couldn't Load System Status", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(message)
-                    }
-                case .loaded(let status, let diskUsage):
-                    statusSection(status, store: store)
-                    diskUsageSection(diskUsage)
-                    dnsGuidanceSection
-                    deferredFeaturesNote
-                }
+        switch store.phase {
+        case .loading:
+            ProgressView("Loading runtime status…")
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 24)
+        case .failed(let message):
+            ContentUnavailableView {
+                Label("Couldn't Load System Status", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
             }
-            .padding()
+        case .loaded(let status, let diskUsage):
+            VStack(alignment: .leading, spacing: 24) {
+                statusSection(status, store: store)
+                diskUsageSection(diskUsage)
+                dnsGuidanceSection
+                deferredFeaturesNote
+            }
         }
     }
 

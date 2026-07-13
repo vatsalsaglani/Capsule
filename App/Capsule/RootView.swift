@@ -73,6 +73,7 @@ struct RootView: View {
                 }
             }
         }
+        .tint(CapsulePalette.accent)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await runtimeInstaller.refresh() }
         }
@@ -84,6 +85,7 @@ struct RootView: View {
                 Label(item.title, systemImage: item.systemImage)
                     .tag(item)
             }
+            .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } detail: {
             switch selection ?? .containers {
@@ -93,6 +95,12 @@ struct RootView: View {
                 ImagesView(session: session)
             case .system:
                 SystemView(session: session)
+            case .composeProjects:
+                ComposeProjectsView(session: session)
+            case .volumes:
+                VolumesView(session: session)
+            case .networks:
+                NetworksView(session: session)
             case let item:
                 PlaceholderView(item: item)
             }
@@ -104,11 +112,24 @@ struct PlaceholderView: View {
     let item: SidebarItem
 
     var body: some View {
-        ContentUnavailableView {
-            Label(item.title, systemImage: item.systemImage)
-        } description: {
-            Text("Arriving in \(item.milestone) — see docs/ROADMAP.md.")
+        VStack(spacing: 16) {
+            Image(systemName: item.systemImage)
+                .font(.system(size: 36, weight: .medium))
+                .foregroundStyle(CapsulePalette.accent)
+                .frame(width: 72, height: 72)
+                .background(CapsulePalette.accent.opacity(0.12), in: .rect(cornerRadius: 16))
+            VStack(spacing: 5) {
+                Text(item.title)
+                    .font(.title2.weight(.semibold))
+                Text("This screen is not available on the current Capsule runtime surface yet.")
+                    .foregroundStyle(.secondary)
+            }
+            CapsuleBadge("Tracked in \(item.milestone)", systemImage: "map")
         }
+        .padding(32)
+        .background(CapsulePalette.surface, in: .rect(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(CapsulePalette.hairline))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle(item.title)
     }
 }

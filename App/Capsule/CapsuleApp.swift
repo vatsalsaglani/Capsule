@@ -45,6 +45,7 @@ struct CapsuleApp: App {
     // still, matching the B1 "construct once" directive — just a sibling of
     // `session`, not a member of it.
     @State private var runtimeInstaller = RuntimeInstallerModel()
+    @State private var cliInstallStore = CapsuleCLIInstallStore()
     #if DEBUG
     @State private var demoSession = ScriptedDemoSession()
     #endif
@@ -75,6 +76,7 @@ struct CapsuleApp: App {
             RootView()
                 .environment(session)
                 .environment(runtimeInstaller)
+                .environment(cliInstallStore)
                 .task { await session.start() }
                 .task { await runtimeInstaller.refresh() }
         }

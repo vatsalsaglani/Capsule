@@ -3,35 +3,53 @@ import ContainerClient
 import SwiftUI
 import TerminalKit
 
-/// The Containers screen (P1B B3) — list bound to the shared
-/// `ContainerListStore.phase`, trailing inspector bound to a
-/// `ContainerDetailStore` built from the same `RuntimeSession`. Shared
-/// verbatim with the `#if DEBUG` feel prototype (`FeelPrototypeDemoView`),
-/// which passes a scripted `RuntimeSession` instead of the real one — same
-/// view code, same production data path, per the P1B B2+B3 brief.
 struct ContainersView: View {
     let session: RuntimeSession
 
     @State private var detailStore: ContainerDetailStore?
-    /// Built once per screen instance, same "construct once, share
-    /// everywhere" posture as `detailStore` (P1C — `RuntimeSession`'s doc
-    /// comment).
     @State private var terminalManager: TerminalSessionManager?
+    @State private var metricsStore: ContainerMetricsStore?
     @State private var selection: String?
+    @AppStorage("containerCollectionMode") private var collectionMode = CapsuleCollectionMode.cards
 
     init(session: RuntimeSession) {
         self.session = session
         _detailStore = State(initialValue: session.makeDetailStore())
         _terminalManager = State(initialValue: session.makeTerminalSessionManager())
+        _metricsStore = State(initialValue: session.makeContainerMetricsStore())
+    }
+
+    private var runningContainerIDs: [String] {
+        session.containers.currentContainers
+            .filter { $0.runState == .running }
+            .map(\.id)
+            .sorted()
     }
 
     var body: some View {
         listContent
             .navigationTitle("Containers")
+            .toolbar {
+                CapsuleCollectionModePicker(selection: $collectionMode)
+            }
             .inspector(isPresented: inspectorPresented) {
                 if let detailStore {
                     ContainerInspector(store: detailStore, terminalManager: terminalManager)
                 }
+            }
+            .alert(
+                "Container Action Failed",
+                isPresented: Binding(
+                    get: { session.containers.lastActionError != nil },
+                    set: { if !$0 { session.containers.dismissActionError() } }
+                )
+            ) {
+                Button("OK") { session.containers.dismissActionError() }
+            } message: {
+                Text(session.containers.lastActionError?.message ?? "Unknown error")
+            }
+            .task(id: runningContainerIDs) {
+                await metricsStore?.observe(ids: runningContainerIDs)
             }
             .onChange(of: selection) { _, newValue in
                 Task {
@@ -68,30 +86,89 @@ struct ContainersView: View {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .foregroundStyle(Color(nsColor: .systemOrange))
-                    .padding(8)
+                    .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: .systemOrange).opacity(0.12))
-                // Dimmed, not blanked — the last-known list stays visible and
-                // browsable through a transient outage (§6.1: never trap).
-                containerList(lastKnown)
+                    .background(Color(nsColor: .systemOrange).opacity(0.1))
+                containerCollection(lastKnown)
                     .disabled(true)
-                    .opacity(0.6)
+                    .opacity(0.58)
             }
         case .loaded(let containers) where containers.isEmpty:
             ContentUnavailableView {
                 Label("No Containers", systemImage: "shippingbox")
             } description: {
-                Text("Run one with `container run …` — it appears here live.")
+                Text("Start a Compose project or run a container from the command line. It will appear here live.")
             }
         case .loaded(let containers):
-            containerList(containers)
+            containerCollection(containers)
         }
     }
 
-    private func containerList(_ containers: [ContainerSummary]) -> some View {
-        List(containers, selection: $selection) { container in
-            ContainerRow(container: container, store: session.containers)
-                .tag(container.id)
+    private func containerCollection(_ containers: [ContainerSummary]) -> some View {
+        VStack(spacing: 0) {
+            collectionHeader(containers)
+            Divider()
+            ScrollView {
+                switch collectionMode {
+                case .cards:
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 280, maximum: 410), spacing: 12)],
+                        alignment: .leading,
+                        spacing: 12
+                    ) {
+                        ForEach(containers) { container in
+                            containerSurface(container, layout: .card)
+                        }
+                    }
+                case .list:
+                    LazyVStack(spacing: 6) {
+                        ForEach(containers) { container in
+                            containerSurface(container, layout: .row)
+                        }
+                    }
+                }
+            }
+            .contentMargins(18, for: .scrollContent)
         }
+    }
+
+    private func collectionHeader(_ containers: [ContainerSummary]) -> some View {
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Container fleet")
+                    .font(.title3.weight(.semibold))
+                Text("Select a container to inspect logs, processes, resources, and terminal access.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Label(
+                "\(containers.count(where: { $0.runState == .running })) running",
+                systemImage: "circle.fill"
+            )
+            .foregroundStyle(Color(nsColor: .systemGreen))
+            Label(
+                CapsuleFormatting.bytes(metricsStore?.totalMemoryUsageBytes ?? 0),
+                systemImage: "memorychip"
+            )
+            .help("Total measured memory for running containers")
+        }
+        .font(.callout)
+        .padding(.horizontal, 18)
+        .frame(minHeight: 64)
+    }
+
+    private func containerSurface(
+        _ container: ContainerSummary,
+        layout: CapsuleResourceSurfaceLayout
+    ) -> some View {
+        ContainerRow(
+            container: container,
+            store: session.containers,
+            layout: layout,
+            isSelected: selection == container.id,
+            sample: metricsStore?.sample(for: container.id),
+            select: { selection = container.id }
+        )
     }
 }
