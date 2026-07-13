@@ -1,0 +1,72 @@
+name: App Artifact
+
+# Builds the Capsule.app bundle and uploads it as a downloadable workflow
+# artifact so people can try the app before there's a notarized dmg (Phase 4).
+# The app is UNSIGNED (ad-hoc only) — the README documents the one-time
+# quarantine-strip + self-sign a downloader runs to open it.
+on:
+  push:
+    branches: [main]
+    # Also attach the app to tagged releases (the CLI is handled by release.yml).
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-artifact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-app:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec App/project.yml --project App
+
+      - name: Build Capsule.app (Release, unsigned)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project App/Capsule.xcodeproj \
+            -scheme Capsule \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Locate + ad-hoc sign the app
+        id: pkg
+        run: |
+          set -euo pipefail
+          APP="$(find build/Build/Products -maxdepth 2 -name 'Capsule.app' -type d | head -1)"
+          test -n "$APP" || { echo "Capsule.app not found"; exit 1; }
+          echo "Built: $APP"
+          # Ad-hoc sign so the bundle has a stable (self-)signature; downloaders
+          # still strip quarantine per the README. This is NOT notarization.
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP" || true
+          # ditto -k preserves the bundle + signature inside the zip.
+          ditto -c -k --sequesterRsrc --keepParent "$APP" Capsule.app.zip
+          echo "zip=Capsule.app.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Capsule.app-${{ github.sha }}
+          path: ${{ steps.pkg.outputs.zip }}
+          if-no-files-found: error
+
+      # On a tag push, also attach the zip to the drafted GitHub release.
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: Capsule.app.zip
