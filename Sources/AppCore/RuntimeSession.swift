@@ -2,6 +2,7 @@ import ContainerClient
 import EventBus
 import Foundation
 import Observation
+import TerminalKit
 
 /// Composition root for the app-facing state (P1B B1). Builds the real
 /// pipeline — `CLIProcessClient` → `RuntimeGateway` → one shared
@@ -120,6 +121,27 @@ public final class RuntimeSession {
     public func makeSystemStore() -> SystemStore? {
         guard let runtime else { return nil }
         return SystemStore(runtime: runtime)
+    }
+
+    /// Builds a fresh `TerminalSessionManager` (P1C) bound to the same
+    /// shared runtime as `containers` (for `ShellDetector`'s non-interactive
+    /// probes) and a `PTYExecSession` factory over the same `container`
+    /// binary the runtime itself resolved at startup. Re-locates the binary
+    /// path independently via `ContainerBinaryLocator` rather than reading
+    /// it off `runtime` — `ContainerRuntime` deliberately doesn't expose its
+    /// backing binary path (P1A contract), and the interactive PTY exec
+    /// doesn't go through the protocol at all (S3: it needs direct
+    /// master-fd/pid control for cooperative terminate), only the shell
+    /// probes do. `nil` exactly when construction hit the `.runtimeMissing`
+    /// path (nothing to open a terminal into) or the binary can no longer
+    /// be located.
+    public func makeTerminalSessionManager() -> TerminalSessionManager? {
+        guard let runtime else { return nil }
+        guard let binaryPath = ContainerBinaryLocator.locate() else { return nil }
+        return TerminalSessionManager(
+            runtime: runtime,
+            makeSession: PTYExecSession.makeContainerExecFactory(binaryPath: binaryPath)
+        )
     }
 
     /// Starts the `containers` store's subscription *before* the shared

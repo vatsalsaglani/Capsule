@@ -2,20 +2,28 @@ import AppCore
 import Charts
 import ContainerClient
 import SwiftUI
+import TerminalKit
 
 /// The trailing inspector panel — image/digest, addresses, published ports
-/// (with open-in-browser), labels, mounts, logs (follow, solid-dark), and a
-/// CPU sparkline (visibility-gated per S4 discipline). Shared between the
-/// real Containers screen and the `#if DEBUG` feel prototype.
+/// (with open-in-browser), labels, mounts, logs (follow, solid-dark), a CPU
+/// sparkline (visibility-gated per S4 discipline), and a Terminal tab (P1C —
+/// `terminalTab` below is the entire integration surface; the real view
+/// lives in `TerminalTabsView`, a P1C-owned file). Shared between the real
+/// Containers screen and the `#if DEBUG` feel prototype.
 struct ContainerInspector: View {
     let store: ContainerDetailStore
+    /// `nil` when the runtime session couldn't build one (mirrors
+    /// `RuntimeSession.makeTerminalSessionManager()`'s own `nil` cases) —
+    /// the Terminal tab degrades to an honest unavailable state rather than
+    /// a broken one (rule 10, AGENTS.md).
+    let terminalManager: TerminalSessionManager?
 
     @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab: Tab = .overview
 
     private enum Tab: Hashable {
-        case overview, logs, stats
+        case overview, logs, stats, terminal
     }
 
     var body: some View {
@@ -25,6 +33,7 @@ struct ContainerInspector: View {
                 Text("Overview").tag(Tab.overview)
                 Text("Logs").tag(Tab.logs)
                 Text("Stats").tag(Tab.stats)
+                Text("Terminal").tag(Tab.terminal)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -36,6 +45,7 @@ struct ContainerInspector: View {
                 case .overview: overviewTab
                 case .logs: logsTab
                 case .stats: statsTab
+                case .terminal: terminalTab
                 }
             }
             // Interruptible, state-driven transition (§6.3) rather than a
@@ -248,6 +258,25 @@ struct ContainerInspector: View {
             }
         }
         .padding()
+    }
+
+    // MARK: - Terminal
+
+    /// P1C's entire integration surface in this P1B-owned file: everything
+    /// past this one line is `TerminalTabsView` (P1C, `App/Capsule/
+    /// TerminalTabsView.swift`) — tab bar, session lifecycle, and the
+    /// SwiftTerm-backed host view all live there.
+    @ViewBuilder
+    private var terminalTab: some View {
+        if let terminalManager, let containerID = store.currentID {
+            TerminalTabsView(manager: terminalManager, containerID: containerID)
+        } else {
+            ContentUnavailableView(
+                "Terminal Unavailable",
+                systemImage: "terminal",
+                description: Text("The runtime isn't available for an interactive session right now.")
+            )
+        }
     }
 
     private var cpuChart: some View {

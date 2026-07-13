@@ -12,6 +12,13 @@ options:
 packages:
   CapsuleKit:
     path: ..
+  # SwiftTerm is App-only (P1C, S3 decision): raw-PTY spawn means no
+  # CapsuleKit target ever imports it — only `TerminalHostView.swift` does.
+  # Resolution needs network; `Package.resolved` + this generated project
+  # are gitignored (see the repo-root note above).
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    from: "1.2.0"
 
 targets:
   Capsule:
@@ -24,6 +31,10 @@ targets:
         product: ContainerClient
       - package: CapsuleKit
         product: AppCore
+      - package: CapsuleKit
+        product: TerminalKit
+      - package: SwiftTerm
+        product: SwiftTerm
       # Debug-only: backs the #if DEBUG scripted feel-prototype demo
       # (`ScriptedDemoSession`/`FeelPrototypeDemoView`). Remove alongside
       # that file once P4 polish lands (P1B B2+B3 commit note).

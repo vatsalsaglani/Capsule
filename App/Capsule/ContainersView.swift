@@ -1,6 +1,7 @@
 import AppCore
 import ContainerClient
 import SwiftUI
+import TerminalKit
 
 /// The Containers screen (P1B B3) — list bound to the shared
 /// `ContainerListStore.phase`, trailing inspector bound to a
@@ -12,11 +13,16 @@ struct ContainersView: View {
     let session: RuntimeSession
 
     @State private var detailStore: ContainerDetailStore?
+    /// Built once per screen instance, same "construct once, share
+    /// everywhere" posture as `detailStore` (P1C — `RuntimeSession`'s doc
+    /// comment).
+    @State private var terminalManager: TerminalSessionManager?
     @State private var selection: String?
 
     init(session: RuntimeSession) {
         self.session = session
         _detailStore = State(initialValue: session.makeDetailStore())
+        _terminalManager = State(initialValue: session.makeTerminalSessionManager())
     }
 
     var body: some View {
@@ -24,7 +30,7 @@ struct ContainersView: View {
             .navigationTitle("Containers")
             .inspector(isPresented: inspectorPresented) {
                 if let detailStore {
-                    ContainerInspector(store: detailStore)
+                    ContainerInspector(store: detailStore, terminalManager: terminalManager)
                 }
             }
             .onChange(of: selection) { _, newValue in

@@ -23,8 +23,10 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
-        // SwiftTerm is added when the terminal screen lands (M1) — TerminalKit
-        // stays protocol-only until then.
+        // SwiftTerm is App-only (App/project.yml), not a root-package
+        // dependency: the terminal screen's PTY spawn is raw (S3 decision —
+        // `PTYExecSession` owns the PTY directly), so no CapsuleKit target
+        // ever imports SwiftTerm; only App/Capsule's SwiftUI view does.
     ],
     targets: [
         .target(name: "EventBus"),
@@ -39,8 +41,16 @@ let package = Package(
         ]),
         .target(name: "Supervisor", dependencies: ["ContainerClient"]),
         .target(name: "ProjectStore"),
-        .target(name: "TerminalKit"),
-        .target(name: "AppCore", dependencies: ["ContainerClient", "EventBus"]),
+        // ContainerClient dependency backs `ShellDetector`'s `container exec`
+        // probes (plan §3/P1C). The raw-PTY `PTYExecSession` itself doesn't
+        // go through `ContainerRuntime` (S3: it needs direct master-fd/pid
+        // control for cooperative terminate) — only shell detection does.
+        // SwiftTerm stays App-only (see App/project.yml); no UI import here.
+        .target(name: "TerminalKit", dependencies: ["ContainerClient"]),
+        // TerminalKit dependency backs `RuntimeSession.makeTerminalSessionManager()`
+        // (P1C composition-root wiring, mirrors `makeDetailStore`/
+        // `makeImagesStore`/`makeSystemStore`) — still no SwiftUI/SwiftTerm here.
+        .target(name: "AppCore", dependencies: ["ContainerClient", "EventBus", "TerminalKit"]),
         .executableTarget(name: "CapsuleCLI", dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             "ContainerClient",
@@ -54,5 +64,6 @@ let package = Package(
         .testTarget(name: "ComposePlannerTests", dependencies: ["ComposePlanner"]),
         .testTarget(name: "SupervisorTests", dependencies: ["Supervisor"]),
         .testTarget(name: "AppCoreTests", dependencies: ["AppCore", "ContainerClient", "ContainerClientTestSupport", "EventBus"]),
+        .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "ContainerClient", "ContainerClientTestSupport"]),
     ]
 )
