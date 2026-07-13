@@ -125,10 +125,10 @@ import ContainerClientTestSupport
         .deleteImage(reference: "nginx:latest"),
         .tagImage(source: "nginx:latest", target: "nginx:pinned"),
         .listVolumes,
-        .createVolume(name: "demo-vol-2", labels: ["capsule.project": "demo"]),
+        .createVolume(VolumeCreateSpec(name: "demo-vol-2", labels: ["capsule.project": "demo"])),
         .deleteVolume(name: "demo-vol"),
         .listNetworks,
-        .createNetwork(name: "demo_net2", labels: [:], isInternal: true),
+        .createNetwork(NetworkCreateSpec(name: "demo_net2", connectivity: .hostOnly)),
         .deleteNetwork(name: "demo_default"),
         .deleteContainer(id: "web-1", force: true),
     ]
@@ -167,6 +167,37 @@ import ContainerClientTestSupport
     #expect(try await fake.listContainers(all: false).isEmpty)
     #expect(try await fake.cliVersion() == SemanticVersion(major: 1, minor: 1, patch: 0))
     #expect(try await fake.systemStatus().status == "running")
+}
+
+@Test func fakeContainerRuntimeSupportsBuildAndTypedPruneOperations() async throws {
+    let fake = FakeContainerRuntime()
+    let buildSpec = ImageBuildSpec(
+        contextDirectory: URL(fileURLWithPath: "/tmp/demo"),
+        tag: "demo/web:dev"
+    )
+    let buildEvents = [
+        BuildProgress(message: "#1 START", receivedAt: Date(timeIntervalSince1970: 1)),
+        BuildProgress(message: "#1 DONE", receivedAt: Date(timeIntervalSince1970: 2)),
+    ]
+    await fake.setBuildEvents(buildEvents, forTag: buildSpec.tag)
+    await fake.setVolumePruneReport(PruneReport(removedNames: ["old-volume"]))
+    await fake.setNetworkPruneReport(PruneReport(removedNames: ["old-network"]))
+
+    var received: [BuildProgress] = []
+    for try await event in try await fake.buildImage(buildSpec) {
+        received.append(event)
+    }
+    let volumeReport = try await fake.pruneVolumes()
+    let networkReport = try await fake.pruneNetworks()
+
+    #expect(received == buildEvents)
+    #expect(volumeReport.removedNames == ["old-volume"])
+    #expect(networkReport.removedNames == ["old-network"])
+    #expect(await fake.calls == [
+        .buildImage(buildSpec),
+        .pruneVolumes,
+        .pruneNetworks,
+    ])
 }
 
 extension RunSpec {

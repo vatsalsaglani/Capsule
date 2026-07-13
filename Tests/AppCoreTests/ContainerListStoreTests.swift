@@ -1,8 +1,10 @@
 import AppCore
+import ComposeSpec
 import ContainerClient
 import ContainerClientTestSupport
 import EventBus
 import Foundation
+import ProjectStore
 import Testing
 
 /// Polls `condition` until it's true or `timeout` elapses, returning whether
@@ -26,6 +28,21 @@ private func waitUntil(
         if condition() { return true }
     }
     return condition()
+}
+
+@MainActor
+private func waitUntilAsync(
+    timeout: Duration = .seconds(2),
+    pollEvery: Duration = .milliseconds(5),
+    _ condition: @escaping () async -> Bool
+) async -> Bool {
+    if await condition() { return true }
+    let deadline = ContinuousClock.now.advanced(by: timeout)
+    while ContinuousClock.now < deadline {
+        try? await Task.sleep(for: pollEvery)
+        if await condition() { return true }
+    }
+    return await condition()
 }
 
 private struct ProbeError: Error, Sendable, LocalizedError {
@@ -300,6 +317,79 @@ private func makeWebContainer(id: String, status: String) -> ContainerSummary {
     await session.start()
 
     #expect(await waitUntil { session.containers.phase == .loaded([web1]) })
+
+    await session.stop()
+}
+
+@MainActor
+@Test func sessionOwnsResidentComposeSupervisionAndResumesRestartFromItsFirstSnapshot() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = ProjectStore(rootDirectory: root)
+    let source = ComposeSource(
+        yaml: """
+        name: demo
+        services:
+          worker:
+            image: worker
+            restart: always
+        """,
+        fallbackName: "demo",
+        workingDirectory: root.path,
+        filePath: root.appendingPathComponent("compose.yaml").path
+    )
+    let document = try ComposeParser().parse(source: source)
+    try store.saveProject(ProjectRecord(
+        id: "demo",
+        name: "demo",
+        sourcePath: source.filePath!,
+        createdAt: Date(timeIntervalSince1970: 1)
+    ))
+    try store.saveResolvedProject(document, projectID: "demo")
+    try store.saveState(StoredProjectState(
+        revision: "revision",
+        desiredRunning: true,
+        serviceConfigHashes: ["worker": "hash"],
+        services: [
+            "worker": StoredServiceState(
+                containerID: "demo-worker-1",
+                desiredRunning: true
+            ),
+        ]
+    ), projectID: "demo")
+
+    let fake = FakeContainerRuntime()
+    await fake.setContainers([
+        ContainerSummary(
+            id: "demo-worker-1",
+            status: "stopped",
+            imageReference: "worker",
+            addresses: [],
+            labels: [
+                "capsule.project": "demo",
+                "capsule.service": "worker",
+                "capsule.index": "1",
+                "capsule.config-hash": "hash",
+            ]
+        ),
+    ])
+    let session = RuntimeSession(
+        makeRuntime: { fake },
+        projectStore: store,
+        pollInterval: .milliseconds(15),
+        idleInterval: .milliseconds(80),
+        unavailableInterval: .milliseconds(15)
+    )
+
+    await session.start()
+
+    #expect(await waitUntilAsync {
+        await fake.calls.contains(.startContainer(id: "demo-worker-1"))
+    })
+    #expect(await waitUntil {
+        session.composeSupervision.project("demo")?.services.first?.restart.attempts == 1
+    })
+    #expect(try store.loadState(projectID: "demo").services["worker"]?.restart.attempts == 1)
 
     await session.stop()
 }

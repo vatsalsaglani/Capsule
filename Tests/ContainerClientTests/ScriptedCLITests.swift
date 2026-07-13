@@ -60,6 +60,60 @@ private enum ScriptedBinary {
     #expect(result.stderrText == "err\n")
 }
 
+@Test func argvEchoExecDefaultIdentityRemainsByteForByteUnchanged() async throws {
+    let capture = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    printf '%s\\n' "$@" > "\(capture)"
+    exit 0
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    _ = try await client.exec(
+        id: "web-1",
+        argv: ["sh", "-c", "id -u"],
+        timeout: .seconds(20)
+    )
+
+    #expect(try String(contentsOfFile: capture, encoding: .utf8) == """
+    exec
+    web-1
+    sh
+    -c
+    id -u
+
+    """)
+}
+
+@Test func argvEchoExecContainerRootPrecedesIDAndPreservesNonZeroResult() async throws {
+    let capture = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    printf '%s\\n' "$@" > "\(capture)"
+    echo 'root command failed' 1>&2
+    exit 9
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    let result = try await client.exec(
+        id: "adminer-1",
+        argv: ["sh", "-c", "id -u"],
+        options: .containerRoot,
+        timeout: .seconds(20)
+    )
+
+    #expect(result.exitCode == 9)
+    #expect(result.stderrText == "root command failed\n")
+    #expect(try String(contentsOfFile: capture, encoding: .utf8) == """
+    exec
+    --user
+    0
+    adminer-1
+    sh
+    -c
+    id -u
+
+    """)
+}
+
 @Test func pullImageStreamsStderrThenThrowsWithTailOnNonZeroExit() async throws {
     let script = try ScriptedBinary.write("""
     #!/bin/sh
@@ -229,6 +283,163 @@ private enum ScriptedBinary {
     for try await _ in try await client.pullImage(reference: "docker.io/library/alpine:latest", platform: "linux/arm64") {}
     let captured = try String(contentsOfFile: capture, encoding: .utf8)
     #expect(captured == "image\npull\n--progress\nplain\n--platform\nlinux/arm64\ndocker.io/library/alpine:latest\n")
+}
+
+@Test func argvEchoBuildImageUsesDeterministicFullSpecAndStreamsProgress() async throws {
+    let capture = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    printf '%s\\n' "$@" > "\(capture)"
+    echo '#1 loading build definition'
+    echo '#1 resolving base image' 1>&2
+    echo '#2 DONE 0.1s'
+    exit 0
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    let spec = ImageBuildSpec(
+        contextDirectory: URL(fileURLWithPath: "/tmp/demo"),
+        dockerfile: URL(fileURLWithPath: "/tmp/demo/Containerfile"),
+        tag: "demo/web:dev",
+        arguments: ["Z_LAST": "2", "A_FIRST": "1"],
+        target: "runtime",
+        platform: "linux/arm64",
+        labels: ["capsule.service": "web", "capsule.project": "demo"],
+        cachePolicy: .noCache,
+        baseImagePolicy: .pull
+    )
+    var messages: [String] = []
+    for try await event in try await client.buildImage(spec) {
+        messages.append(event.message)
+    }
+
+    let captured = try String(contentsOfFile: capture, encoding: .utf8)
+    #expect(captured == """
+    build
+    --progress
+    plain
+    --tag
+    demo/web:dev
+    --file
+    /tmp/demo/Containerfile
+    --build-arg
+    A_FIRST=1
+    --build-arg
+    Z_LAST=2
+    --target
+    runtime
+    --platform
+    linux/arm64
+    --label
+    capsule.project=demo
+    --label
+    capsule.service=web
+    --no-cache
+    --pull
+    /tmp/demo
+
+    """)
+    #expect(messages == [
+        "#1 loading build definition",
+        "#1 resolving base image",
+        "#2 DONE 0.1s",
+    ])
+}
+
+@Test func argvEchoRichVolumeAndNetworkCreateSpecsMapCapacityConnectivityAndSubnets() async throws {
+    let capture = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    printf '%s\\n' "$@" >> "\(capture)"
+    printf '%s\\n' --- >> "\(capture)"
+    exit 0
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    try await client.createVolume(VolumeCreateSpec(
+        name: "demo_data",
+        capacityBytes: 1_073_741_824,
+        labels: ["capsule.project": "demo"]
+    ))
+    try await client.createNetwork(NetworkCreateSpec(
+        name: "demo_default",
+        connectivity: .hostOnly,
+        ipv4Subnet: "192.168.90.0/24",
+        ipv6Subnet: "fd00:90::/64",
+        labels: ["capsule.project": "demo"]
+    ))
+
+    let captured = try String(contentsOfFile: capture, encoding: .utf8)
+    #expect(captured == """
+    volume
+    create
+    --label
+    capsule.project=demo
+    -s
+    1073741824
+    demo_data
+    ---
+    network
+    create
+    --label
+    capsule.project=demo
+    --internal
+    --subnet
+    192.168.90.0/24
+    --subnet-v6
+    fd00:90::/64
+    demo_default
+    ---
+
+    """)
+}
+
+@Test func volumePruneDerivesRemovedNamesFromBeforeAndAfterLists() async throws {
+    let state = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    if [ "$1" = volume ] && [ "$2" = ls ]; then
+      if [ -f "\(state)" ]; then
+        echo '[{"configuration":{"name":"kept"}}]'
+      else
+        echo '[{"configuration":{"name":"kept"}},{"configuration":{"name":"removed"}}]'
+      fi
+      exit 0
+    fi
+    if [ "$1" = volume ] && [ "$2" = prune ]; then
+      touch "\(state)"
+      echo 'Removed unused volumes'
+      exit 0
+    fi
+    exit 64
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    let report = try await client.pruneVolumes()
+    #expect(report.removedNames == ["removed"])
+    #expect(report.notices == ["Removed unused volumes"])
+}
+
+@Test func networkPruneDerivesRemovedNamesFromBeforeAndAfterLists() async throws {
+    let state = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    if [ "$1" = network ] && [ "$2" = ls ]; then
+      if [ -f "\(state)" ]; then
+        echo '[{"id":"default","configuration":{"name":"default","labels":{"com.apple.container.resource.role":"builtin"}}}]'
+      else
+        echo '[{"id":"default","configuration":{"name":"default","labels":{"com.apple.container.resource.role":"builtin"}}},{"id":"old_net","configuration":{"name":"old_net"}}]'
+      fi
+      exit 0
+    fi
+    if [ "$1" = network ] && [ "$2" = prune ]; then
+      touch "\(state)"
+      echo 'Removed unused networks' 1>&2
+      exit 0
+    fi
+    exit 64
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    let report = try await client.pruneNetworks()
+    #expect(report.removedNames == ["old_net"])
+    #expect(report.notices == ["Removed unused networks"])
 }
 
 @Test func argvEchoStatsUsesNoStreamPollShape() async throws {

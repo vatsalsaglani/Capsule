@@ -1,3 +1,4 @@
+import ContainerClientTestSupport
 import Foundation
 import Testing
 @testable import ContainerClient
@@ -81,10 +82,61 @@ private actor OrderRecordingRuntime: ContainerRuntime {
     func tagImage(source: String, target: String) async throws {}
     func listVolumes() async throws -> [VolumeSummary] { [] }
     func createVolume(name: String, labels: [String: String]) async throws {}
+    func createVolume(_ spec: VolumeCreateSpec) async throws {
+        _ = await perform("create-volume(\(spec.name))") { () }
+    }
     func deleteVolume(name: String) async throws {}
+    func pruneVolumes() async throws -> PruneReport {
+        await perform("prune-volumes") { PruneReport(removedNames: []) }
+    }
     func listNetworks() async throws -> [NetworkSummary] { [] }
     func createNetwork(name: String, labels: [String: String], isInternal: Bool) async throws {}
     func deleteNetwork(name: String) async throws {}
+}
+
+@Test func gatewayForwardsExecIdentityOptionsThroughRuntimeExistential() async throws {
+    let base = FakeContainerRuntime()
+    await base.setExecResult(
+        ExecResult(exitCode: 0, stdout: Data("0\n".utf8), stderr: Data()),
+        forID: "adminer-1"
+    )
+    let runtime: any ContainerRuntime = RuntimeGateway(base: base)
+
+    let result = try await runtime.exec(
+        id: "adminer-1",
+        argv: ["id", "-u"],
+        options: .containerRoot,
+        timeout: .seconds(5)
+    )
+
+    #expect(result.stdoutText == "0\n")
+    #expect(await base.calls == [
+        .execWithOptions(
+            id: "adminer-1",
+            argv: ["id", "-u"],
+            options: .containerRoot,
+            timeout: .seconds(5)
+        ),
+    ])
+}
+
+@Test func legacyRuntimeFailsLoudlyForExecIdentityOverride() async throws {
+    let runtime: any ContainerRuntime = OrderRecordingRuntime()
+    do {
+        _ = try await runtime.exec(
+            id: "legacy-1",
+            argv: ["id", "-u"],
+            options: .containerRoot,
+            timeout: .seconds(5)
+        )
+        Issue.record("expected an older conformer to reject an exec identity override")
+    } catch let error as RuntimeError {
+        guard case .notImplemented(let operation) = error else {
+            Issue.record("unexpected RuntimeError: \(error)")
+            return
+        }
+        #expect(operation == "exec user override")
+    }
 }
 
 @Test func gatewaySameIDMutationsAreStrictlyOrderedNeverInterleaved() async throws {
@@ -158,4 +210,62 @@ private actor OrderRecordingRuntime: ContainerRuntime {
 
     let events = await recorder.events
     #expect(events.contains("delete(a).end"))
+}
+
+@Test func gatewayForwardsRichResourceBuildAndPruneOperations() async throws {
+    let fake = FakeContainerRuntime()
+    let gateway = RuntimeGateway(base: fake)
+    let volume = VolumeCreateSpec(name: "demo_data", capacityBytes: 1_024)
+    let network = NetworkCreateSpec(
+        name: "demo_default",
+        connectivity: .hostOnly,
+        ipv4Subnet: "192.168.90.0/24",
+        ipv6Subnet: "fd00:90::/64"
+    )
+    let build = ImageBuildSpec(
+        contextDirectory: URL(fileURLWithPath: "/tmp/demo"),
+        tag: "demo/web:dev"
+    )
+    await fake.setBuildEvents([BuildProgress(message: "done")], forTag: build.tag)
+    await fake.setVolumePruneReport(PruneReport(removedNames: ["old-volume"]))
+    await fake.setNetworkPruneReport(PruneReport(removedNames: ["old-network"]))
+
+    try await gateway.createVolume(volume)
+    try await gateway.createNetwork(network)
+    for try await _ in try await gateway.buildImage(build) {}
+    _ = try await gateway.pruneVolumes()
+    _ = try await gateway.pruneNetworks()
+
+    #expect(await fake.calls == [
+        .createVolume(volume),
+        .createNetwork(network),
+        .buildImage(build),
+        .pruneVolumes,
+        .pruneNetworks,
+    ])
+}
+
+@Test func gatewayVolumePruneDoesNotRaceVolumeCreation() async throws {
+    let recorder = OrderRecordingRuntime()
+    await recorder.setDelay(.milliseconds(80))
+    let gateway = RuntimeGateway(base: recorder)
+
+    async let create: () = gateway.createVolume(VolumeCreateSpec(name: "demo_data"))
+    async let prune: PruneReport = gateway.pruneVolumes()
+    _ = try await (create, prune)
+
+    let events = await recorder.events
+    let createFirst = [
+        "create-volume(demo_data).begin",
+        "create-volume(demo_data).end",
+        "prune-volumes.begin",
+        "prune-volumes.end",
+    ]
+    let pruneFirst = [
+        "prune-volumes.begin",
+        "prune-volumes.end",
+        "create-volume(demo_data).begin",
+        "create-volume(demo_data).end",
+    ]
+    #expect(events == createFirst || events == pruneFirst)
 }
