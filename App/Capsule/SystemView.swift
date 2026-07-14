@@ -1,5 +1,6 @@
 import AppCore
 import ContainerClient
+import Diagnostics
 import SwiftUI
 
 /// The System screen (P1B B5) — runtime status/version, `system df` storage
@@ -12,6 +13,7 @@ struct SystemView: View {
     let session: RuntimeSession
 
     @Environment(CapsuleCLIInstallStore.self) private var cliInstallStore
+    @Environment(DiagnosticsStore.self) private var diagnostics
     @State private var store: SystemStore?
 
     init(session: RuntimeSession) {
@@ -24,6 +26,12 @@ struct SystemView: View {
             VStack(alignment: .leading, spacing: 24) {
                 CommandLineToolSection(store: cliInstallStore)
 
+                RuntimeDiagnosticChecksView(
+                    store: diagnostics,
+                    onRefresh: { Task { await diagnostics.refresh() } },
+                    onAction: { action in handleDiagnosticAction(action) }
+                )
+
                 if let store {
                     content(store: store)
                 } else {
@@ -33,13 +41,18 @@ struct SystemView: View {
                         Text(runtimeMissingMessage)
                     }
                 }
+
+                LocalDiagnosticsHistoryView(store: diagnostics)
             }
             .padding()
         }
         .navigationTitle("System")
         .task {
             cliInstallStore.refresh()
-            await store?.refresh()
+            async let systemRefresh: Void = store?.refresh() ?? ()
+            async let doctorRefresh: Void = diagnostics.refresh()
+            async let historyRefresh: Void = diagnostics.loadHistory()
+            _ = await (systemRefresh, doctorRefresh, historyRefresh)
         }
     }
 
@@ -232,4 +245,30 @@ struct SystemView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
     }
+
+    // MARK: - Runtime doctor and local incident history
+
+    private func handleDiagnosticAction(_ action: DiagnosticRemediationAction) {
+        switch action {
+        case .startRuntime:
+            Task {
+                await store?.startRuntime()
+                if store?.lastActionError != nil {
+                    await diagnostics.record(.init(
+                        surface: .app,
+                        component: .runtime,
+                        operation: .runtimeStatus,
+                        kind: .commandFailed,
+                        severity: .error
+                    ))
+                }
+                await diagnostics.refresh()
+            }
+        case .installRuntime(let releasePage), .updateRuntime(let releasePage):
+            NSWorkspace.shared.open(releasePage)
+        case .retry:
+            Task { await diagnostics.refresh() }
+        }
+    }
+
 }

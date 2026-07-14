@@ -1,4 +1,5 @@
 import AppCore
+import Diagnostics
 import RuntimeInstaller
 import SwiftUI
 
@@ -9,7 +10,9 @@ import SwiftUI
 /// installer themselves in Finder/Installer.app (rule 7, AGENTS.md).
 struct OnboardingView: View {
     let model: RuntimeInstallerModel
+    let onRuntimeAvailable: @MainActor () async -> Void
     @Environment(CapsuleCLIInstallStore.self) private var cliInstallStore
+    @Environment(DiagnosticsStore.self) private var diagnostics
 
     var body: some View {
         ScrollView {
@@ -31,7 +34,12 @@ struct OnboardingView: View {
                     .frame(maxWidth: 420)
                 }
 
-                searchedPathsNote
+                RuntimeDiagnosticChecksView(
+                    store: diagnostics,
+                    onRefresh: { Task { await runChecks() } },
+                    onAction: handleDiagnosticAction
+                )
+                .frame(maxWidth: 560)
 
                 downloadSection
 
@@ -52,17 +60,31 @@ struct OnboardingView: View {
         .animation(CapsuleMotion.standard, value: phaseKey)
         .task {
             cliInstallStore.refresh()
-            await model.refresh()
+            await runChecks()
         }
     }
 
-    private var searchedPathsNote: some View {
-        Group {
-            if case .missing(let searchedPaths) = model.runtimePresence, !searchedPaths.isEmpty {
-                Text("Searched: \(searchedPaths.joined(separator: ", "))")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.tertiary)
-            }
+    private func runChecks() async {
+        async let installProbe: Void = model.refresh()
+        async let doctorProbe: Void = diagnostics.refresh()
+        _ = await (installProbe, doctorProbe)
+        if case .present = model.runtimePresence {
+            await onRuntimeAvailable()
+        }
+    }
+
+    private func handleDiagnosticAction(_ action: DiagnosticRemediationAction) {
+        switch action {
+        case .installRuntime:
+            Task { await model.prepareInstaller() }
+        case .updateRuntime(let releasePage):
+            NSWorkspace.shared.open(releasePage)
+        case .retry:
+            Task { await runChecks() }
+        case .startRuntime:
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString("container system start", forType: .string)
         }
     }
 

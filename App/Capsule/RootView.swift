@@ -41,18 +41,10 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Milestone that delivers the screen (docs/ROADMAP.md).
-    var milestone: String {
-        switch self {
-        case .containers, .images, .system: "M1"
-        case .composeProjects: "M2"
-        case .volumes, .networks: "M3"
-        case .builds, .machines: "M3"
-        }
-    }
 }
 
 struct RootView: View {
+    let reloadRuntimeSession: @MainActor () async -> Void
     @Environment(RuntimeSession.self) private var session
     @Environment(RuntimeInstallerModel.self) private var runtimeInstaller
     @State private var selection: SidebarItem? = .containers
@@ -65,7 +57,10 @@ struct RootView: View {
             // the user guessing why nothing loads (master plan §3 exit
             // criteria: "app survives CLI absence gracefully").
             if case .runtimeMissing = session.containers.phase {
-                OnboardingView(model: runtimeInstaller)
+                OnboardingView(
+                    model: runtimeInstaller,
+                    onRuntimeAvailable: reloadRuntimeSession
+                )
             } else {
                 VStack(spacing: 0) {
                     UpdateBanner(model: runtimeInstaller, isDismissed: $updateBannerDismissed)
@@ -75,7 +70,13 @@ struct RootView: View {
         }
         .tint(CapsulePalette.accent)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            Task { await runtimeInstaller.refresh() }
+            Task {
+                await runtimeInstaller.refresh()
+                if case .runtimeMissing = session.containers.phase,
+                   case .present = runtimeInstaller.runtimePresence {
+                    await reloadRuntimeSession()
+                }
+            }
         }
     }
 
@@ -101,35 +102,11 @@ struct RootView: View {
                 VolumesView(session: session)
             case .networks:
                 NetworksView(session: session)
-            case let item:
-                PlaceholderView(item: item)
+            case .builds:
+                BuildsView(session: session)
+            case .machines:
+                MachinesView(session: session)
             }
         }
-    }
-}
-
-struct PlaceholderView: View {
-    let item: SidebarItem
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: item.systemImage)
-                .font(.system(size: 36, weight: .medium))
-                .foregroundStyle(CapsulePalette.accent)
-                .frame(width: 72, height: 72)
-                .background(CapsulePalette.accent.opacity(0.12), in: .rect(cornerRadius: 16))
-            VStack(spacing: 5) {
-                Text(item.title)
-                    .font(.title2.weight(.semibold))
-                Text("This screen is not available on the current Capsule runtime surface yet.")
-                    .foregroundStyle(.secondary)
-            }
-            CapsuleBadge("Tracked in \(item.milestone)", systemImage: "map")
-        }
-        .padding(32)
-        .background(CapsulePalette.surface, in: .rect(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(CapsulePalette.hairline))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle(item.title)
     }
 }

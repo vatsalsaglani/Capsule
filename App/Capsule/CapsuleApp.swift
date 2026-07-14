@@ -1,4 +1,5 @@
 import AppCore
+import Diagnostics
 import RuntimeInstaller
 import SwiftUI
 
@@ -7,27 +8,53 @@ import SwiftUI
 /// only at app termination, never tied to any individual window/menu-bar
 /// scene's own lifecycle — `NSApplicationDelegateAdaptor` is the mechanism
 /// that gives us a hook outside SwiftUI's scene lifecycle for that.
+@MainActor
 final class CapsuleAppDelegate: NSObject, NSApplicationDelegate {
     var session: RuntimeSession?
+    var incidentHistory: (any IncidentHistoryServing)?
+    private var launchTask: Task<ApplicationLaunchReceipt?, Never>?
+    private var isFinishingTermination = false
     #if DEBUG
     var demoSession: ScriptedDemoSession?
     #endif
 
-    func applicationWillTerminate(_ notification: Notification) {
-        // Best-effort: `stop()` is async (cancels the poller's task and
-        // unsubscribes the containers store from the bus) and the process
-        // may exit before it fully drains — acceptable, since nothing here
-        // needs to survive process exit. What the B1 directive actually
-        // requires is *scope* (this is the only stop() call site, never a
-        // scene appear/disappear), not synchronous completion before return.
-        if let session {
-            Task { await session.stop() }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let incidentHistory else { return }
+        let version = Bundle.main.object(forInfoDictionaryKey: "CapsuleReleaseVersion") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        launchTask = Task {
+            try? await incidentHistory.beginLaunch(
+                surface: .app,
+                productVersion: version,
+                productBuild: build
+            )
         }
+    }
+
+    /// Waits for the local launch marker and runtime tasks before AppKit
+    /// acknowledges termination. A fire-and-forget task from
+    /// `applicationWillTerminate` is too late to reliably mark a clean exit.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isFinishingTermination else { return .terminateLater }
+        isFinishingTermination = true
+        let launchTask = launchTask
+        let incidentHistory = incidentHistory
+        let session = session
         #if DEBUG
-        if let demoSession {
-            Task { await demoSession.stop() }
-        }
+        let demoSession = demoSession
         #endif
+        Task {
+            if let receipt = await launchTask?.value, let incidentHistory {
+                _ = try? await incidentHistory.finishLaunch(receipt.token)
+            }
+            await session?.stop()
+            #if DEBUG
+            await demoSession?.stop()
+            #endif
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }
 
@@ -46,12 +73,17 @@ struct CapsuleApp: App {
     // `session`, not a member of it.
     @State private var runtimeInstaller = RuntimeInstallerModel()
     @State private var cliInstallStore = CapsuleCLIInstallStore()
+    @State private var diagnostics: DiagnosticsStore
     #if DEBUG
     @State private var demoSession = ScriptedDemoSession()
     #endif
 
     init() {
+        let incidentHistory = LocalIncidentHistory()
+        let diagnostics = DiagnosticsStore(incidentHistory: incidentHistory)
+        _diagnostics = State(initialValue: diagnostics)
         appDelegate.session = session
+        appDelegate.incidentHistory = incidentHistory
         #if DEBUG
         appDelegate.demoSession = demoSession
         #endif
@@ -73,10 +105,11 @@ struct CapsuleApp: App {
 
     var body: some Scene {
         WindowGroup(id: "main") {
-            RootView()
+            RootView(reloadRuntimeSession: reloadRuntimeSession)
                 .environment(session)
                 .environment(runtimeInstaller)
                 .environment(cliInstallStore)
+                .environment(diagnostics)
                 .task { await session.start() }
                 .task { await runtimeInstaller.refresh() }
         }
@@ -97,6 +130,15 @@ struct CapsuleApp: App {
             FeelPrototypeDemoView(demoSession: demoSession)
         }
         #endif
+    }
+
+    @MainActor
+    private func reloadRuntimeSession() async {
+        await session.stop()
+        let replacement = RuntimeSession()
+        session = replacement
+        appDelegate.session = replacement
+        await replacement.start()
     }
 }
 
