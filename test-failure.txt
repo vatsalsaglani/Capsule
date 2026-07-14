@@ -1,0 +1,719 @@
+Run swift test
+[0/1] Planning build
+[1/1] Compiling plugin GenerateManual
+[2/2] Compiling plugin GenerateDoccReference
+Building for debugging...
+[2/18] Write sources
+[2/19] /Users/runner/work/Capsule/Capsule/.build/arm64-apple-macosx/debug/CapsuleKitPackageTests.derived/runner.swift
+[15/21] Write sources
+[16/21] Write swift-version-5975E236E64FF690.txt
+[18/29] Compiling SupervisorTests HealthProbeRunnerTests.swift
+[19/29] Compiling SupervisorTests RestartPolicyTests.swift
+[20/30] Emitting module SupervisorTests
+[21/30] Compiling SupervisorTests DriftReconcilerTests.swift
+[22/30] Compiling SupervisorTests HealthMonitorTests.swift
+[23/30] Compiling TerminalKitTests ShellDetectorTests.swift
+[24/31] Emitting module TerminalKitTests
+[25/31] Compiling TerminalKitTests PTYExecSessionTests.swift
+[26/31] Compiling SupervisorTests RestartWatcherTests.swift
+[27/33] Emitting module RuntimeInstallerTests
+[28/33] Compiling RuntimeInstallerTests RuntimeInstallerModelTests.swift
+[29/36] Compiling TerminalKitTests TerminalSessionManagerTests.swift
+[30/47] Compiling DiagnosticsTests RuntimeDiagnosticsTests.swift
+[31/47] Compiling DiagnosticsTests LocalIncidentHistoryTests.swift
+[32/47] Emitting module DiagnosticsTests
+[33/47] Compiling ProjectStoreTests ProjectStoreTests.swift
+[34/47] Emitting module ProjectStoreTests
+[35/52] Compiling ComposeRuntimeTests ComposeExecutorTests.swift
+[36/53] Compiling ComposeRuntimeTests ComposeSupervisorTests.swift
+[37/53] Compiling ComposeRuntimeTests ComposeEngineTests.swift
+[38/53] Emitting module ComposeRuntimeTests
+[39/56] Emitting module ComposeSpecTests
+[40/56] Compiling ComposeSpecTests ComposeParserTests.swift
+[41/59] Emitting module ContainerClientTests
+[42/59] Compiling ContainerClientTests CLIProcessClientTests.swift
+[43/59] Compiling ContainerClientTests ContainerClientTests.swift
+[44/59] Compiling ContainerClientTests FakeContainerRuntimeTests.swift
+[45/59] Compiling ContainerClientTests LiveRuntimeTests.swift
+[46/59] Compiling ContainerClientTests PullProgressParsingTests.swift
+[47/64] Compiling ComposePlannerTests DependencyGraphLayerTests.swift
+[48/64] Compiling ComposePlannerTests PlannerTests.swift
+[49/64] Emitting module ComposePlannerTests
+[50/66] Compiling CapsuleCLITests ComposeProgressRendererTests.swift
+[51/66] Compiling CapsuleCLITests CLIParsingTests.swift
+[52/66] Emitting module CapsuleCLITests
+[53/73] Compiling BuildManagerTests BuildManagerTests.swift
+[54/73] Emitting module BuildManagerTests
+[55/73] Compiling AppCoreTests BuildsAndMachinesStoreTests.swift
+[56/73] Compiling AppCoreTests CapsuleCLIInstallerTests.swift
+[57/73] Compiling AppCoreTests ComposeAndResourceStoreTests.swift
+[58/73] Compiling AppCoreTests ContainerDetailStoreTests.swift
+[59/73] Compiling AppCoreTests ContainerListStoreTests.swift
+[65/73] Compiling AppCoreTests ContainerMetricsStoreTests.swift
+[66/73] Emitting module AppCoreTests
+[67/75] Compiling ContainerClientTests RuntimeResourceInventoryTests.swift
+[68/75] Compiling ContainerClientTests RuntimeUpdateCheckerTests.swift
+[69/75] Compiling ContainerClientTests ScriptedCLITests.swift
+[70/75] Compiling ContainerClientTests SubprocessEscalationTests.swift
+[71/75] Compiling ContainerClientTests SubprocessLineStreamTests.swift
+[72/75] Compiling AppCoreTests ImagesStoreTests.swift
+[73/75] Compiling AppCoreTests SystemStoreTests.swift
+[74/77] Compiling CapsuleKitPackageTests runner.swift
+[75/77] Emitting module CapsuleKitPackageTests
+[75/77] Write Objects.LinkFileList
+[76/77] Linking CapsuleKitPackageTests
+Build complete! (15.15s)
+Test Suite 'All tests' started at 2026-07-14 05:51:56.450.
+Test Suite 'All tests' passed at 2026-07-14 05:51:56.451.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test composeProgressInteractiveRowsAreStableSortedAndServiceLabeled() started.
+◇ Test composeProgressFailurePreservesLatestUnknownDiagnostics() started.
+◇ Test composeConfigReportAndExecRemainingArgumentsParse() started.
+◇ Test resourceLabelsValidateAndUseLastDuplicate() started.
+◇ Test composeProgressServiceColorsAreStableAndReserveStateColors() started.
+◇ Test composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test supervisorUserStopPersistsIntentAndPreventsAlwaysRestart() started.
+◇ Test composeUpParsesDocumentedSelectionAndPlanningFlags() started.
+◇ Test composeProgressResponsiveRowsRetainIdentityPhaseAndPercent() started.
+➜ Suite LiveRuntimeTests skipped.
+◇ Test ensureImagePullsWhenOnlyADifferentReferenceExists() started.
+◇ Test composeProgressDrainQuietConsumesWithoutBytesAndThrowingStreamCleansUp() started.
+◇ Test composeServiceOperationsPersistUserIntentForResidentSupervision() started.
+◇ Test composeProgressPlainModeIsBoundedAndControlFree() started.
+◇ Test downPreviewMatchesCapsuleOwnedResourcesAndExcludesUnconfiguredOrphans() started.
+◇ Test volumeAndNetworkCommandsParseRichCreateOptionsAndAliases() started.
+◇ Test quietParsesAcrossEventStreamingCommands() started.
+◇ Test projectLogsSpoolEveryDeliveredLine() started.
+◇ Test composeProgressColorsOnlyTheTypedServiceSegment() started.
+◇ Test supervisorReconcileReportOnlyNeverMutatesAndHealStartsStoppedDesiredService() started.
+◇ Test composeProgressRowsRespectTerminalCellsAndClearExactlyOncePerRow() started.
+◇ Test supervisorRestoresHistoricalHealthThenPersistsLiveProbeAfterRelaunch() started.
+◇ Test composeProgressSanitizerTerminatesStringControlsAndStripsC1() started.
+◇ Test executorRunsParallelLayersAndEmitsOperationScopedProgress() started.
+◇ Test downThenStatusTreatsRemovedStoppedServicesAsConverged() started.
+◇ Test downKeepsOrphansUnlessRequestedAndUsesStopGracePeriod() started.
+◇ Test irreversibleVolumeCommandsRequireScriptableForceFlag() started.
+◇ Test composeProgressCompletionFailureAndFinishClearDashboard() started.
+◇ Test directBuildBuilderAndMachineCommandsParseTheirPublicOptions() started.
+◇ Test projectLogsFollowRunningServicesAndReadStoppedServiceTailWithoutFollowing() started.
+◇ Test upMergesExistingSupervisorStateAndPersistsExactSourceFile() started.
+◇ Test driftUsesStoredStoppedDesiredState() started.
+◇ Test composeConfigResolvesOfflineThroughItsParserOnlySeam() started.
+◇ Test supervisorResumesAlwaysRestartPolicyFromAuthoritativeRelaunchSnapshot() started.
+◇ Test projectDependencyGraphPreservesConditionsAndStartLayers() started.
+◇ Test composeProgressTerminalResizeAndHeightOverflowAreSafe() started.
+◇ Test ensureImageSkipsPullWhenExactReferenceAlreadyExists() started.
+◇ Test supervisorNeverGuessesOnFailureExitStatus() started.
+◇ Test publicComposeExecPreservesConfiguredContainerUser() started.
+◇ Test executorRefreshesHostsWithResolvedPeerIPsWithoutShellInterpolation() started.
+◇ Test upReplacesStaleProjectReopenMetadata() started.
+◇ Test incidentHistoryRecoversPriorLaunchAsUncleanTermination() started.
+◇ Test diagnosticsHealthyRuntimeProducesReadyFinalSnapshot() started.
+◇ Test incidentHistoryIsBoundedAndExportsOnlyStructuredFields() started.
+◇ Test allComposeServiceCommandsAreRegistered() started.
+◇ Test diagnosticsStoppedRuntimeAndNewReleaseNeedAction() started.
+◇ Test diagnosticsMissingBinaryFailsAndSkipsDependentChecks() started.
+◇ Test dependencyCycleIsFatalWithThePathPrinted() started.
+◇ Test diagnosticsRejectsUnsupportedRuntimeMajor() started.
+◇ Test noDependenciesLimitsASelectedService() started.
+◇ Test buildRequestResolverFailsLoudlyWithoutDockerfileOrTag() started.
+◇ Test buildRequestResolverDetectsDockerfileAndRedactsArgumentValuesFromHistory() started.
+◇ Test configHashIsCanonicalAndSemantic() started.
+◇ Test changedServiceRecreatesAndRestartsDependentsInOrder() started.
+◇ Test forceRecreateOverridesMatchingHashes() started.
+◇ Test buildHistoryRecoversAnInterruptedRunningRecord() started.
+◇ Test stopGracePeriodRoundsUpAndOrdersStopBeforeRemoval() started.
+◇ Test buildCenterSerializesBuilderResetThroughTypedRuntimeCalls() started.
+◇ Test buildAndImageUseTheSameExplicitTag() started.
+◇ Test permissionFailureProvidesShellEscapedManualFallback() started.
+◇ Test unknownDependencyIsFatal() started.
+◇ Test systemRefreshSurfacesAFailureAsThePhase() started.
+◇ Test dependencyGraphProducesDeterministicParallelStartLayers() started.
+◇ Test makeImagesStoreAndMakeSystemStoreReturnNilWhenConstructionHitRuntimeMissing() started.
+◇ Test planAndResolvedDocumentRoundTripCodable() started.
+◇ Test tagFailureSurfacesAsLastActionErrorAndSkipsRefresh() started.
+◇ Test infrastructureBarrierGoldenPlanKeepsPullsParallelAfterResources() started.
+◇ Test serviceNetworkMapAttachOnlySyntaxIsAcceptedAndOptionsReport() started.
+◇ Test foreignSymlinkConflictIsPreserved() started.
+◇ Test requestedUnknownServiceIsFatal() started.
+◇ Test imagesDismissActionErrorClearsIt() started.
+◇ Test volumeStoreLoadsReverseReferencesAndDrivesMutations() started.
+◇ Test portShortSyntaxVariants() started.
+◇ Test staleReplacementRevalidatesExpectedLinkText() started.
+◇ Test planCarriesExecutableInputsAndParallelLayers() started.
+◇ Test restartAlwaysIsAcceptedNowThatFrontendSupervisionIsResident() started.
+◇ Test unknownKeysAreReportedNotDropped() started.
+◇ Test startContainerRecordsTheCallAndClearsNoError() started.
+◇ Test serviceEnvironmentFilesMergeInOrderThenServiceEnvironmentWins() started.
+◇ Test staleBrokenRelativeCapsuleLinkRequiresConfirmationThenUpdates() started.
+◇ Test unchangedObservedServicesProduceNoContainerWork() started.
+◇ Test serviceWithoutImageOrBuildIsFatal() started.
+◇ Test externalResourcesAreAttachedButNeverCreatedOrLabeled() started.
+◇ Test interpolationOperators() started.
+◇ Test browserURLReturnsNilForUDPPublishedPorts() started.
+◇ Test relativeLinkResolvingToCurrentHelperCountsAsInstalled() started.
+◇ Test interpolationEnvironmentFilesCanReferenceMergedValues() started.
+◇ Test dismissPullResetsToIdle() started.
+◇ Test composeLogDisplayIsBoundedWhileEngineSpoolsTheFullStream() started.
+◇ Test fileParserLoadsDotEnvExplicitEnvFileAndRelativeServiceEnvFile() started.
+◇ Test composeDurationParsing() started.
+◇ Test containerStateChangedForTheActiveIDTriggersARefresh() started.
+◇ Test parsesServicesDependenciesAndName() started.
+◇ Test systemDismissActionErrorClearsIt() started.
+◇ Test explicitProjectNameWins() started.
+◇ Test onFailurePolicyWarnsWhenRuntimeExitStatusIsUnavailable() started.
+◇ Test logLinesAreRingBufferedToTwoThousand() started.
+◇ Test continuousHealthMonitorFlapsAfterConsecutiveFailureThreshold() started.
+◇ Test restartOnFailureWithRetries() started.
+◇ Test activateLoadsDetailAndDeactivateClearsEverything() started.
+◇ Test missingServiceEnvironmentFileFailsLoud() started.
+◇ Test intentionallyStoppedDesiredInstanceMayBeStoppedOrAbsentWithoutDrift() started.
+◇ Test tagSucceedsThenTriggersARefresh() started.
+◇ Test restartModeSurvivesTheNorwayProblem() started.
+◇ Test onFailureRestartsOnlyOnNonZeroExitWithinBudget() started.
+◇ Test imagesRefreshSurfacesAFailureAsThePhase() started.
+◇ Test restartOnFailureReportsTheRuntimeExitStatusLimitation() started.
+◇ Test matchingDesiredAndObservedStateHasNoDrift() started.
+◇ Test makeDetailStoreBuildsAWorkingStoreOnTheSharedPipeline() started.
+◇ Test composeParserRejectsProjectNamesThatCanTraverseStoragePaths() started.
+◇ Test healthyProbeReturnsOutputAndExecutesConfiguredArgv() started.
+◇ Test alwaysPolicyRestartsStoppedContainerThroughPollerEvent() started.
+◇ Test volumeShortSyntaxDetectsBindsAndFlags() started.
+◇ Test healthProbeRunsDuringStartPeriodAndReturnsOnEarlySuccess() started.
+◇ Test missingDestinationOffersOnlyExactInstallAction() started.
+◇ Test malformedEnvironmentFilesFailLoud() started.
+◇ Test bundledCommandResolvedOutsideBundleIsRejected() started.
+◇ Test backoffDoublesFrom100msAndCapsAtOneMinute() started.
+◇ Test composeSourceInterpolationPrecedenceIsExplicitAndSerializable() started.
+◇ Test onlyHealthyDependencyWaitsForHealth() started.
+◇ Test unhealthyProbePublishesEachAttemptAndFailsWithLastOutput() started.
+◇ Test startPeriodFailuresDoNotConsumeHealthRetryBudget() started.
+◇ Test gatewayPassesThroughSystemStartAndSystemStopAndTheFakeRecordsThem() started.
+◇ Test driftReportFindsMissingChangedStoppedAndOrphanedServices() started.
+◇ Test requiredInterpolationFailureIsAPathSpecificFatalFinding() started.
+◇ Test environmentListForm() started.
+◇ Test alwaysAndUnlessStoppedRestartOnAnyExit() started.
+◇ Test browserURLResolvesNilOrAllInterfacesHostToLocalhost() started.
+◇ Test composeDetailReplaysSavedProjectOverrideAndExplicitEnvironmentFile() started.
+◇ Test nestedUnsupportedKeysAreReported() started.
+◇ Test isInUseTrueWhenAContainerReferencesTheImage() started.
+◇ Test interpolationTouchesScalarValuesButNotMappingKeys() started.
+◇ Test resolvedConfigurationUsesComposeShapedScalarsAndMaps() started.
+◇ Test cpuPercentIsNilWhenTheCounterWentBackwards() started.
+◇ Test sessionPutsContainerStoreIntoRuntimeMissingWhenConstructionFails() started.
+◇ Test invalidStopGracePeriodIsFatal() started.
+◇ Test setStatsVisibleFalseTearsDownTheLiveStatsStream() started.
+◇ Test machinesStoreLoadsInspectsControlsAndStreamsLogsThroughRuntime() started.
+◇ Test listProjectsUsesTheSameSchemaValidationAsDirectLoads() started.
+◇ Test composeDownPreviewIsPreparedBeforeAnyMutationRuns() started.
+◇ Test restartContainerStopsAtTheFailingStepAndRecordsItsError() started.
+◇ Test projectStoreRejectsUnknownStateSchemaInsteadOfGuessingMigration() started.
+◇ Test storeGoesUnavailableOnListFailureThenRecoversOnClear() started.
+◇ Test projectStorePersistsResolvedStateAndLogsAtomically() started.
+◇ Test deactivateTearsDownTheLiveStatsStream() started.
+◇ Test projectLogsRotateAtDeterministicBoundWithNumberedBackups() started.
+◇ Test missingDestinationParentProvidesMkdirManualFallback() started.
+◇ Test manualStopAlwaysWins() started.
+◇ Test resolvedComposeEnvelopeIsVersionedAndValidated() started.
+◇ Test makeImagesStoreAndMakeSystemStoreBuildWorkingStoresOnTheSharedPipeline() started.
+◇ Test projectStoreRejectsTraversalAndSymlinkEscapes() started.
+◇ Test projectStoreMigratesV1SupervisionStateToStructuredV2Checkpoints() started.
+◇ Test metricsStoreClearsSamplesWhenNoContainersAreVisible() started.
+◇ Test gatewayForwardsRichResourceBuildAndPruneOperations() started.
+◇ Test oldProjectRecordWithoutEnvironmentFilesMigratesAdditively() started.
+◇ Test browserURLUsesASpecificBoundHostAddressVerbatim() started.
+◇ Test createContainerParsesStdoutIDAmidStderrProgressNoise() started.
+◇ Test networkStoreProtectsBuiltInAndCreatesRichNetworkSpecs() started.
+◇ Test metricsStorePublishesOnlyRequestedContainersAndTotalsMemory() started.
+◇ Test refreshLoadsCannedImages() started.
+◇ Test lineStreamHandlesPartialChunksCRLFAndNoTrailingNewline() started.
+◇ Test storeReflectsLiveContainerUpdatesFromThePoller() started.
+◇ Test isInUseFalseForAnEmptyContainerList() started.
+◇ Test argvEchoCreateVolumeSortsLabelsAndAppendsInternalOnNetworkOnly() started.
+◇ Test installerPackagePrefersSignedPkgOverUnsignedAndIgnoresNonPkgAssets() started.
+◇ Test bundledCommandMissingIsUnavailableWithRealPath() started.
+◇ Test argvEchoListContainersWithoutAllOmitsFlag() started.
+◇ Test createArgumentsCommandTrailsAfterImage() started.
+◇ Test isInUseFalseWhenNoContainerReferencesTheImage() started.
+◇ Test prepareInstallerReportsFailedOnDownloadFailure() started.
+◇ Test systemStatusDecodesObservedJSONShape() started.
+◇ Test resetDownloadPhaseReturnsToIdle() started.
+◇ Test machineCreationInputValidatesAndConvertsGiBWithoutFrontendMath() started.
+◇ Test refreshLoadsCannedStatusAndDiskUsage() started.
+◇ Test installerPackageIsNilWhenNoPkgAssetIsAttached() started.
+◇ Test prepareInstallerFallsBackToReleasePageWhenNoPkgAssetExists() started.
+◇ Test refreshReportsPresentAndUpdateAvailableWhenLatestReleaseIsNewer() started.
+◇ Test activateRecordsAnInspectFailureWithoutThrowing() started.
+◇ Test logsFinishesCleanlyOnZeroExit() started.
+◇ Test networkSummaryDecodesObservedJSONShape() started.
+◇ Test sessionOwnsResidentComposeSupervisionAndResumesRestartFromItsFirstSnapshot() started.
+◇ Test refreshReportsUpToDateWhenInstalledMatchesLatest() started.
+◇ Test createArgumentsPortVariantsIncludingUDPAndHostAddress() started.
+◇ Test staleManualFallbackRevalidatesBeforeRemovingLink() started.
+◇ Test refreshDegradesUpdateStatusToNilOnNetworkFailureWithoutHidingPresence() started.
+◇ Test regularFileConflictIsPreserved() started.
+◇ Test inspectContainerDecodesSingleElementFromArrayResponse() started.
+◇ Test prepareInstallerDownloadsThePkgAndReportsHonestInstructions() started.
+◇ Test fakeContainerRuntimeResetRestoresDefaults() started.
+◇ Test refreshReportsMissingWhenRuntimeFactoryThrowsBinaryNotFound() started.
+◇ Test stopRuntimeRecordsTheCallAndRefreshes() started.
+◇ Test startContainerFailureSetsLastActionErrorWithTheRealMessage() started.
+◇ Test prepareInstallerNeverInvokesTheRuntimeFactoryAsInstallExecution() started.
+◇ Test mountCodableRoundTripsAllCases() started.
+◇ Test gatewayCancelledWaiterDoesNotWedgeTheLane() started.
+◇ Test subprocessEscalatesToSIGKILLWhenTERMIsIgnored() started.
+◇ Test containerStateChangedForADifferentIDIsIgnored() started.
+◇ Test prepareInstallerReportsFailedOnReleaseFetchFailure() started.
+◇ Test gatewayDifferentIDMutationsOverlapConcurrently() started.
+◇ Test cpuPercentDerivesFromTheDeltaOverElapsedWallTime() started.
+◇ Test prepareInstallerPrefersSignedPkgOverUnsignedWhenBothArePresent() started.
+◇ Test composeRefreshMergesStoredAndRuntimeOnlyProjectsWithoutDroppingMissingSources() started.
+◇ Test evaluateStillReportsUpdateAvailableAcrossAMajorVersionBump() started.
+◇ Test volumeSummaryDecodesObservedJSONShape() started.
+◇ Test pullSurfacesAnInjectedFailureAsPullPhaseFailed() started.
+◇ Test containerDetailDecodesRequestedNetworksForStoppedInventoryRows() started.
+◇ Test menuBarStoreDerivesRuntimeUpAndRunningCountThroughTheSharedStore() started.
+◇ Test makeDetailStoreReturnsNilWhenConstructionHitRuntimeMissing() started.
+◇ Test semanticVersionParsesRealVersionLine() started.
+◇ Test resizePropagatesToChildViaSttySize() started.
+◇ Test pullProgressesThroughLinesToDoneAndTriggersARefresh() started.
+◇ Test waitUntilExitReportsShellExitCode() started.
+◇ Test containerSummaryThrowsOnMissingID() started.
+◇ Test openTwoTabsAndSwitchSelection() started.
+◇ Test stopAllRunningToleratesAnAlreadyStoppedErrorAndStillStopsTheRest() started.
+◇ Test createArgumentsFullSpecIsByteForByteDeterministic() started.
+◇ Test terminateFallsBackToSIGKILLWhenGracePeriodExpires() started.
+◇ Test deleteSucceedsThenTriggersARefresh() started.
+◇ Test composeRefreshKeepsPersistedProjectsWhenRuntimeDiscoveryPartiallyFails() started.
+◇ Test echoRoundTrip() started.
+◇ Test runSpecCodableRoundTrips() started.
+◇ Test shellDetectorFallsBackWhenEarlierCandidatesFail() started.
+◇ Test stopAllRunningStopsExactlyTheRunningIDs() started.
+◇ Test twoSessionsNeverCrossStreams() started.
+◇ Test bundledCommandMustBeExecutable() started.
+◇ Test resourceInventoryLoadsListsAndInspectsThroughRuntimeProtocol() started.
+◇ Test stopRuntimeFailureSurfacesAsLastActionError() started.
+◇ Test openTabSurfacesShellDetectionFailureAsFailedState() started.
+◇ Test containerDetailDecodesPopulatedMounts() started.
+◇ Test shellDetectorThrowsNamingEveryCandidateTriedWhenAllFail() started.
+◇ Test gitHubReleaseVersionParsesUnprefixedTag() started.
+◇ Test shellDetectorPicksFirstSuccessInOrder() started.
+◇ Test composeImportCreatesAProjectAndPreparesAReviewablePlan() started.
+◇ Test stopAllRunningStillSurfacesARealFailure() started.
+◇ Test argvEchoKillContainerPassesSignalAndID() started.
+◇ Test gatewayReadsOverlapAPendingMutation() started.
+◇ Test startRuntimeRecordsTheCallAndRefreshes() started.
+◇ Test argvEchoCreateNetworkAppendsInternalFlagWhenRequested() started.
+◇ Test sessionStartsTheContainersSubscriptionBeforeThePollerSoTheFirstSnapshotIsNeverDropped() started.
+◇ Test imageSummaryDecodesShapeFromFieldMappingBrief() started.
+◇ Test closeTabTerminatesSessionAndRemovesTab() started.
+◇ Test openTabDetectsShellAndConnects() started.
+◇ Test cpuPercentIsNilWhenElapsedTimeIsNotPositive() started.
+◇ Test createArgumentsDNSBlock() started.
+◇ Test installCreatesExactAbsoluteLinkAndIsIdempotent() started.
+◇ Test sessionExitingOnItsOwnTransitionsTabToExitedState() started.
+◇ Test pullProgressParserSupportsLaterStagesBytesAndFractionalElapsed() started.
+◇ Test cooperativeTerminateReapsChildAndClosesMasterFD() started.
+◇ Test startRuntimeFailureSurfacesAsLastActionErrorAndSkipsRefresh() started.
+◇ Test runSpecDefaultsMatchInit() started.
+◇ Test argvEchoPullImageIncludesPlatformWhenProvided() started.
+◇ Test restartContainerRecordsStopThenStartInOrder() started.
+◇ Test closeTabCancelsWatcherBeforeItObservesASimulatedExit() started.
+◇ Test subprocessRejectsMissingExecutable() started.
+◇ Test createArgumentsRepeatedNetworksPreserveOrder() started.
+◇ Test statsTicksPopulateTheSeriesOnlyOnceVisible() started.
+◇ Test subprocessTimeoutPathStillTerminatesPromptly() started.
+◇ Test containerDetailDecodesObservedJSONShape() started.
+◇ Test subprocessCapturesStdout() started.
+◇ Test currentContainersMirrorsPhaseAcrossEveryCase() started.
+◇ Test legacyRuntimeFailsLoudlyForExecIdentityOverride() started.
+◇ Test pullProgressParserFailsOpenWithoutChangingRawMessage() started.
+◇ Test execReturnsNonZeroExitCodeAsALegitimateResultNotAThrow() started.
+◇ Test argvEchoExecDefaultIdentityRemainsByteForByteUnchanged() started.
+◇ Test runSpecHashableEquality() started.
+◇ Test evaluateReportsUpdateAvailableWhenLatestTagIsNewer() started.
+◇ Test subprocessCapturesStderrAndExitCode() started.
+◇ Test createArgumentsBindMountReadOnlyVariants() started.
+◇ Test pollerLifecycleEmitsExpectedEventSequence() started.
+◇ Test evaluateReportsUpToDateWhenInstalledMatchesLatestTag() started.
+◇ Test strippingCIDRSuffixStripsSlashSuffix() started.
+◇ Test pullImageStreamsStderrThenThrowsWithTailOnNonZeroExit() started.
+◇ Test cliProcessClientInitAcceptsCustomStatsInterval() started.
+◇ Test createArgumentsDNSWithoutDomainOmitsDNSDomainFlag() started.
+◇ Test gatewaySameIDMutationsAreStrictlyOrderedNeverInterleaved() started.
+◇ Test cliProcessClientInitTrustsAnExplicitBinaryPathWithoutValidatingIt() started.
+◇ Test fakeContainerRuntimeInjectsAndClearsErrors() started.
+◇ Test subprocessTimesOutAndTerminates() started.
+◇ Test fakeContainerRuntimeSupportsBuildAndTypedPruneOperations() started.
+◇ Test createArgumentsEnvironmentAndLabelsAreOrderIndependent() started.
+◇ Test inspectContainerThrowsDecodingFailedOnEmptyArray() started.
+◇ Test case passing 3 arguments environment → [:], tty → true, expected → true to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test argvEchoMachineCreateStartAndLogsUseVerifiedRuntimeShapes() started.
+◇ Test case passing 3 arguments environment → [:], tty → false, expected → false to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test volumePruneDerivesRemovedNamesFromBeforeAndAfterLists() started.
+◇ Test case passing 3 arguments environment → ["TERM": "dumb"], tty → true, expected → false to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test case passing 3 arguments environment → ["CI": "true"], tty → true, expected → false to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test case passing 3 arguments environment → ["CI": "0"], tty → true, expected → true to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test lineStreamThrowsWithOtherFDTailOnNonZeroExit() started.
+◇ Test machineListAndInspectDecodeRuntimeOnePointOneJSON() started.
+◇ Test lineStreamYieldsMultipleLinesInOrder() started.
+◇ Test case passing 3 arguments environment → ["NO_COLOR": "1"], tty → true, expected → false to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test pullProgressParserRejectsFloatingPointIntegerBoundariesWithoutTrapping() started.
+◇ Test case passing 3 arguments environment → ["NO_COLOR": ""], tty → true, expected → true to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test statsSampleDecodesObservedJSONShape() started.
+◇ Test case passing 3 arguments environment → ["CLICOLOR": "0"], tty → true, expected → false to composeProgressCapabilityDetectionMatrix(environment:tty:expected:) started.
+◇ Test networkPruneDerivesRemovedNamesFromBeforeAndAfterLists() started.
+◇ Test argvEchoStatsUsesNoStreamPollShape() started.
+◇ Test gatewayVolumePruneDoesNotRaceVolumeCreation() started.
+◇ Test fakeContainerRuntimeRoundTripsEveryMethodAndRecordsCalls() started.
+◇ Test createArgumentsMinimalSpecIsJustTheImage() started.
+◇ Test gatewayForwardsExecIdentityOptionsThroughRuntimeExistential() started.
+◇ Test createArgumentsTmpfsMount() started.
+◇ Test containerSummaryDecodesObservedJSONShape() started.
+◇ Test mountDetailUnrecognizedTypeKeySurfacesAsUnknown() started.
+◇ Test portMappingDecodesObservedJSONShape() started.
+◇ Test evaluateReportsUnknownWhenTagDoesNotParseAsSemanticVersion() started.
+◇ Test cliProcessClientInitAcceptsExplicitBinaryPathWithoutTouchingIt() started.
+◇ Test pullProgressParserHandlesObservedRuntimeShapes() started.
+◇ Test resourceInventoryDerivesReverseReferencesOwnersAndBuiltInNetworks() started.
+◇ Test mountDetailDecodesBindVolumeAndTmpfsShapes() started.
+◇ Test argvEchoInspectContainerNeverAppendsFormatJSON() started.
+◇ Test argvEchoListContainersAppendsAllAndFormatJSON() started.
+◇ Test evaluateReportsUpToDateWhenInstalledIsNewerThanLatestTag() started.
+◇ Test semanticVersionOrdering() started.
+◇ Test argvEchoExecContainerRootPrecedesIDAndPreservesNonZeroResult() started.
+◇ Test pollerStartIsIdempotent() started.
+◇ Test systemDiskUsageDecodesObservedJSONShape() started.
+◇ Test lineStreamConsumerCancelKillsTheChildPromptly() started.
+◇ Test argvEchoBuildImageUsesDeterministicFullSpecAndStreamsProgress() started.
+◇ Test createArgumentsBooleanFlagsOnlyAppearWhenTrue() started.
+◇ Test containerSummaryThrowsOnMissingStatusState() started.
+◇ Test createArgumentsVolumeMountReadOnlyVariants() started.
+◇ Test argvEchoRichVolumeAndNetworkCreateSpecsMapCapacityConnectivityAndSubnets() started.
+◇ Test resourceInventoryToleratesTypedListToInspectDeletionChurn() started.
+✔ Test composeProgressFailurePreservesLatestUnknownDiagnostics() passed after 0.278 seconds.
+✔ Test resourceLabelsValidateAndUseLastDuplicate() passed after 0.289 seconds.
+✔ Test composeProgressServiceColorsAreStableAndReserveStateColors() passed after 0.289 seconds.
+✔ Test composeProgressInteractiveRowsAreStableSortedAndServiceLabeled() passed after 0.290 seconds.
+✔ Test composeUpParsesDocumentedSelectionAndPlanningFlags() passed after 0.290 seconds.
+✔ Test composeProgressCapabilityDetectionMatrix(environment:tty:expected:) with 8 test cases passed after 0.302 seconds.
+✔ Test composeProgressResponsiveRowsRetainIdentityPhaseAndPercent() passed after 0.303 seconds.
+➜ Test apiserverStoppedSurfacesTypedErrorWithRealStderr() skipped.
+➜ Test pullSmallImageReportsProgressOnStderr() skipped.
+➜ Test createStartLogsExecStatsKillDeleteLifecycle() skipped.
+✔ Test composeConfigReportAndExecRemainingArgumentsParse() passed after 0.310 seconds.
+✔ Test composeProgressDrainQuietConsumesWithoutBytesAndThrowingStreamCleansUp() passed after 0.334 seconds.
+✔ Test composeProgressPlainModeIsBoundedAndControlFree() passed after 0.336 seconds.
+✔ Test composeProgressColorsOnlyTheTypedServiceSegment() passed after 0.338 seconds.
+✔ Test composeProgressRowsRespectTerminalCellsAndClearExactlyOncePerRow() passed after 0.343 seconds.
+✔ Test composeProgressSanitizerTerminatesStringControlsAndStripsC1() passed after 0.352 seconds.
+✔ Test volumeAndNetworkCommandsParseRichCreateOptionsAndAliases() passed after 0.357 seconds.
+✔ Test composeProgressCompletionFailureAndFinishClearDashboard() passed after 0.357 seconds.
+✔ Test irreversibleVolumeCommandsRequireScriptableForceFlag() passed after 0.357 seconds.
+✔ Test composeConfigResolvesOfflineThroughItsParserOnlySeam() passed after 0.357 seconds.
+✔ Test projectDependencyGraphPreservesConditionsAndStartLayers() passed after 0.357 seconds.
+✔ Test directBuildBuilderAndMachineCommandsParseTheirPublicOptions() passed after 0.357 seconds.
+✔ Test composeProgressTerminalResizeAndHeightOverflowAreSafe() passed after 0.357 seconds.
+✔ Test quietParsesAcrossEventStreamingCommands() passed after 0.357 seconds.
+✔ Test publicComposeExecPreservesConfiguredContainerUser() passed after 0.377 seconds.
+✔ Test incidentHistoryIsBoundedAndExportsOnlyStructuredFields() passed after 0.386 seconds.
+✔ Test incidentHistoryRecoversPriorLaunchAsUncleanTermination() passed after 0.387 seconds.
+✔ Test dependencyCycleIsFatalWithThePathPrinted() passed after 0.387 seconds.
+✔ Test noDependenciesLimitsASelectedService() passed after 0.387 seconds.
+✔ Test buildRequestResolverFailsLoudlyWithoutDockerfileOrTag() passed after 0.387 seconds.
+✔ Test changedServiceRecreatesAndRestartsDependentsInOrder() passed after 0.387 seconds.
+✔ Test configHashIsCanonicalAndSemantic() passed after 0.387 seconds.
+✔ Test forceRecreateOverridesMatchingHashes() passed after 0.387 seconds.
+✔ Test buildHistoryRecoversAnInterruptedRunningRecord() passed after 0.387 seconds.
+✔ Test buildCenterSerializesBuilderResetThroughTypedRuntimeCalls() passed after 0.387 seconds.
+✔ Test buildAndImageUseTheSameExplicitTag() passed after 0.387 seconds.
+✔ Test unknownDependencyIsFatal() passed after 0.387 seconds.
+✔ Test dependencyGraphProducesDeterministicParallelStartLayers() passed after 0.387 seconds.
+✔ Test stopGracePeriodRoundsUpAndOrdersStopBeforeRemoval() passed after 0.387 seconds.
+✔ Test infrastructureBarrierGoldenPlanKeepsPullsParallelAfterResources() passed after 0.387 seconds.
+✔ Test planAndResolvedDocumentRoundTripCodable() passed after 0.388 seconds.
+✔ Test serviceNetworkMapAttachOnlySyntaxIsAcceptedAndOptionsReport() passed after 0.388 seconds.
+✔ Test requestedUnknownServiceIsFatal() passed after 0.388 seconds.
+✔ Test portShortSyntaxVariants() passed after 0.387 seconds.
+✔ Test foreignSymlinkConflictIsPreserved() passed after 0.388 seconds.
+✔ Test staleReplacementRevalidatesExpectedLinkText() passed after 0.388 seconds.
+✔ Test restartAlwaysIsAcceptedNowThatFrontendSupervisionIsResident() passed after 0.388 seconds.
+✔ Test unknownKeysAreReportedNotDropped() passed after 0.388 seconds.
+✔ Test serviceEnvironmentFilesMergeInOrderThenServiceEnvironmentWins() passed after 0.388 seconds.
+✔ Test planCarriesExecutableInputsAndParallelLayers() passed after 0.388 seconds.
+✔ Test unchangedObservedServicesProduceNoContainerWork() passed after 0.388 seconds.
+✔ Test serviceWithoutImageOrBuildIsFatal() passed after 0.388 seconds.
+✔ Test staleBrokenRelativeCapsuleLinkRequiresConfirmationThenUpdates() passed after 0.388 seconds.
+✔ Test interpolationOperators() passed after 0.388 seconds.
+✔ Test externalResourcesAreAttachedButNeverCreatedOrLabeled() passed after 0.388 seconds.
+✔ Test interpolationEnvironmentFilesCanReferenceMergedValues() passed after 0.388 seconds.
+✔ Test relativeLinkResolvingToCurrentHelperCountsAsInstalled() passed after 0.388 seconds.
+✔ Test composeDurationParsing() passed after 0.388 seconds.
+✔ Test parsesServicesDependenciesAndName() passed after 0.388 seconds.
+✔ Test onFailurePolicyWarnsWhenRuntimeExitStatusIsUnavailable() passed after 0.388 seconds.
+✔ Test explicitProjectNameWins() passed after 0.388 seconds.
+✔ Test continuousHealthMonitorFlapsAfterConsecutiveFailureThreshold() passed after 0.388 seconds.
+✔ Test restartOnFailureWithRetries() passed after 0.388 seconds.
+✔ Test missingServiceEnvironmentFileFailsLoud() passed after 0.388 seconds.
+✔ Test intentionallyStoppedDesiredInstanceMayBeStoppedOrAbsentWithoutDrift() passed after 0.388 seconds.
+✔ Test restartModeSurvivesTheNorwayProblem() passed after 0.388 seconds.
+✔ Test onFailureRestartsOnlyOnNonZeroExitWithinBudget() passed after 0.388 seconds.
+✔ Test fileParserLoadsDotEnvExplicitEnvFileAndRelativeServiceEnvFile() passed after 0.388 seconds.
+✔ Test matchingDesiredAndObservedStateHasNoDrift() passed after 0.388 seconds.
+✔ Test restartOnFailureReportsTheRuntimeExitStatusLimitation() passed after 0.388 seconds.
+✔ Test healthyProbeReturnsOutputAndExecutesConfiguredArgv() passed after 0.388 seconds.
+✔ Test volumeShortSyntaxDetectsBindsAndFlags() passed after 0.388 seconds.
+✔ Test healthProbeRunsDuringStartPeriodAndReturnsOnEarlySuccess() passed after 0.388 seconds.
+✔ Test composeParserRejectsProjectNamesThatCanTraverseStoragePaths() passed after 0.388 seconds.
+✔ Test malformedEnvironmentFilesFailLoud() passed after 0.388 seconds.
+✔ Test missingDestinationOffersOnlyExactInstallAction() passed after 0.388 seconds.
+✔ Test backoffDoublesFrom100msAndCapsAtOneMinute() passed after 0.388 seconds.
+✔ Test composeSourceInterpolationPrecedenceIsExplicitAndSerializable() passed after 0.388 seconds.
+✔ Test onlyHealthyDependencyWaitsForHealth() passed after 0.388 seconds.
+✔ Test unhealthyProbePublishesEachAttemptAndFailsWithLastOutput() passed after 0.388 seconds.
+✔ Test startPeriodFailuresDoNotConsumeHealthRetryBudget() passed after 0.388 seconds.
+✔ Test driftReportFindsMissingChangedStoppedAndOrphanedServices() passed after 0.388 seconds.
+✔ Test requiredInterpolationFailureIsAPathSpecificFatalFinding() passed after 0.388 seconds.
+✔ Test environmentListForm() passed after 0.388 seconds.
+✔ Test alwaysAndUnlessStoppedRestartOnAnyExit() passed after 0.388 seconds.
+✔ Test nestedUnsupportedKeysAreReported() passed after 0.388 seconds.
+✔ Test isInUseTrueWhenAContainerReferencesTheImage() passed after 0.388 seconds.
+✔ Test bundledCommandResolvedOutsideBundleIsRejected() passed after 0.388 seconds.
+✔ Test resolvedConfigurationUsesComposeShapedScalarsAndMaps() passed after 0.388 seconds.
+✔ Test cpuPercentIsNilWhenTheCounterWentBackwards() passed after 0.388 seconds.
+✔ Test invalidStopGracePeriodIsFatal() passed after 0.388 seconds.
+✔ Test interpolationTouchesScalarValuesButNotMappingKeys() passed after 0.388 seconds.
+✔ Test projectStoreRejectsUnknownStateSchemaInsteadOfGuessingMigration() passed after 0.388 seconds.
+✔ Test listProjectsUsesTheSameSchemaValidationAsDirectLoads() passed after 0.388 seconds.
+✔ Test projectStorePersistsResolvedStateAndLogsAtomically() passed after 0.388 seconds.
+✔ Test resolvedComposeEnvelopeIsVersionedAndValidated() passed after 0.388 seconds.
+✔ Test manualStopAlwaysWins() passed after 0.388 seconds.
+✔ Test projectLogsRotateAtDeterministicBoundWithNumberedBackups() passed after 0.388 seconds.
+✔ Test projectStoreRejectsTraversalAndSymlinkEscapes() passed after 0.388 seconds.
+✔ Test oldProjectRecordWithoutEnvironmentFilesMigratesAdditively() passed after 0.388 seconds.
+✔ Test projectStoreMigratesV1SupervisionStateToStructuredV2Checkpoints() passed after 0.388 seconds.
+✔ Test isInUseFalseForAnEmptyContainerList() passed after 0.388 seconds.
+✔ Test bundledCommandMissingIsUnavailableWithRealPath() passed after 0.388 seconds.
+✔ Test installerPackagePrefersSignedPkgOverUnsignedAndIgnoresNonPkgAssets() passed after 0.388 seconds.
+✔ Test createArgumentsCommandTrailsAfterImage() passed after 0.388 seconds.
+✔ Test isInUseFalseWhenNoContainerReferencesTheImage() passed after 0.388 seconds.
+✔ Test systemStatusDecodesObservedJSONShape() passed after 0.388 seconds.
+✔ Test machineCreationInputValidatesAndConvertsGiBWithoutFrontendMath() passed after 0.388 seconds.
+✔ Test installerPackageIsNilWhenNoPkgAssetIsAttached() passed after 0.388 seconds.
+✔ Test networkSummaryDecodesObservedJSONShape() passed after 0.395 seconds.
+✔ Test createArgumentsPortVariantsIncludingUDPAndHostAddress() passed after 0.395 seconds.
+✔ Test staleManualFallbackRevalidatesBeforeRemovingLink() passed after 0.395 seconds.
+✔ Test fakeContainerRuntimeResetRestoresDefaults() passed after 0.395 seconds.
+✔ Test regularFileConflictIsPreserved() passed after 0.395 seconds.
+✔ Test mountCodableRoundTripsAllCases() passed after 0.396 seconds.
+✔ Test cpuPercentDerivesFromTheDeltaOverElapsedWallTime() passed after 0.396 seconds.
+✔ Test evaluateStillReportsUpdateAvailableAcrossAMajorVersionBump() passed after 0.396 seconds.
+✔ Test volumeSummaryDecodesObservedJSONShape() passed after 0.396 seconds.
+✔ Test containerDetailDecodesRequestedNetworksForStoppedInventoryRows() passed after 0.396 seconds.
+✔ Test semanticVersionParsesRealVersionLine() passed after 0.396 seconds.
+✔ Test containerSummaryThrowsOnMissingID() passed after 0.398 seconds.
+✔ Test createArgumentsFullSpecIsByteForByteDeterministic() passed after 0.398 seconds.
+✔ Test runSpecCodableRoundTrips() passed after 0.399 seconds.
+✔ Test shellDetectorFallsBackWhenEarlierCandidatesFail() passed after 0.399 seconds.
+✔ Test containerDetailDecodesPopulatedMounts() passed after 0.399 seconds.
+✔ Test shellDetectorThrowsNamingEveryCandidateTriedWhenAllFail() passed after 0.399 seconds.
+✔ Test gitHubReleaseVersionParsesUnprefixedTag() passed after 0.399 seconds.
+✔ Test shellDetectorPicksFirstSuccessInOrder() passed after 0.399 seconds.
+✔ Test bundledCommandMustBeExecutable() passed after 0.399 seconds.
+✔ Test allComposeServiceCommandsAreRegistered() passed after 0.411 seconds.
+✔ Test cpuPercentIsNilWhenElapsedTimeIsNotPositive() passed after 0.408 seconds.
+✔ Test createArgumentsDNSBlock() passed after 0.408 seconds.
+✔ Test imageSummaryDecodesShapeFromFieldMappingBrief() passed after 0.408 seconds.
+✔ Test pullProgressParserSupportsLaterStagesBytesAndFractionalElapsed() passed after 0.408 seconds.
+✔ Test runSpecDefaultsMatchInit() passed after 0.408 seconds.
+✔ Test installCreatesExactAbsoluteLinkAndIsIdempotent() passed after 0.409 seconds.
+✔ Test subprocessRejectsMissingExecutable() passed after 0.408 seconds.
+✔ Test createArgumentsRepeatedNetworksPreserveOrder() passed after 0.408 seconds.
+✔ Test containerDetailDecodesObservedJSONShape() passed after 0.409 seconds.
+✔ Test legacyRuntimeFailsLoudlyForExecIdentityOverride() passed after 0.409 seconds.
+✔ Test pullProgressParserFailsOpenWithoutChangingRawMessage() passed after 0.409 seconds.
+✔ Test runSpecHashableEquality() passed after 0.410 seconds.
+✔ Test evaluateReportsUpdateAvailableWhenLatestTagIsNewer() passed after 0.410 seconds.
+✔ Test createArgumentsBindMountReadOnlyVariants() passed after 0.405 seconds.
+✔ Test evaluateReportsUpToDateWhenInstalledMatchesLatestTag() passed after 0.405 seconds.
+✔ Test strippingCIDRSuffixStripsSlashSuffix() passed after 0.405 seconds.
+✔ Test cliProcessClientInitAcceptsCustomStatsInterval() passed after 0.405 seconds.
+✔ Test createArgumentsDNSWithoutDomainOmitsDNSDomainFlag() passed after 0.405 seconds.
+✔ Test cliProcessClientInitTrustsAnExplicitBinaryPathWithoutValidatingIt() passed after 0.405 seconds.
+✔ Test fakeContainerRuntimeInjectsAndClearsErrors() passed after 0.404 seconds.
+✔ Test fakeContainerRuntimeSupportsBuildAndTypedPruneOperations() passed after 0.390 seconds.
+✔ Test createArgumentsEnvironmentAndLabelsAreOrderIndependent() passed after 0.390 seconds.
+✔ Test pullProgressParserRejectsFloatingPointIntegerBoundariesWithoutTrapping() passed after 0.389 seconds.
+✔ Test statsSampleDecodesObservedJSONShape() passed after 0.388 seconds.
+✔ Test fakeContainerRuntimeRoundTripsEveryMethodAndRecordsCalls() passed after 0.451 seconds.
+✔ Test gatewayForwardsExecIdentityOptionsThroughRuntimeExistential() passed after 0.451 seconds.
+✔ Test createArgumentsMinimalSpecIsJustTheImage() passed after 0.451 seconds.
+✔ Test createArgumentsTmpfsMount() passed after 0.451 seconds.
+✔ Test containerSummaryDecodesObservedJSONShape() passed after 0.451 seconds.
+✔ Test mountDetailUnrecognizedTypeKeySurfacesAsUnknown() passed after 0.451 seconds.
+✔ Test portMappingDecodesObservedJSONShape() passed after 0.451 seconds.
+✔ Test evaluateReportsUnknownWhenTagDoesNotParseAsSemanticVersion() passed after 0.450 seconds.
+✔ Test cliProcessClientInitAcceptsExplicitBinaryPathWithoutTouchingIt() passed after 0.449 seconds.
+✔ Test pullProgressParserHandlesObservedRuntimeShapes() passed after 0.449 seconds.
+✔ Test resourceInventoryDerivesReverseReferencesOwnersAndBuiltInNetworks() passed after 0.449 seconds.
+✔ Test mountDetailDecodesBindVolumeAndTmpfsShapes() passed after 0.449 seconds.
+✔ Test evaluateReportsUpToDateWhenInstalledIsNewerThanLatestTag() passed after 0.442 seconds.
+✔ Test semanticVersionOrdering() passed after 0.441 seconds.
+✔ Test systemDiskUsageDecodesObservedJSONShape() passed after 0.441 seconds.
+✔ Test createArgumentsBooleanFlagsOnlyAppearWhenTrue() passed after 0.440 seconds.
+✔ Test containerSummaryThrowsOnMissingStatusState() passed after 0.440 seconds.
+✔ Test createArgumentsVolumeMountReadOnlyVariants() passed after 0.441 seconds.
+✔ Test permissionFailureProvidesShellEscapedManualFallback() passed after 0.484 seconds.
+✔ Test makeImagesStoreAndMakeSystemStoreReturnNilWhenConstructionHitRuntimeMissing() passed after 0.484 seconds.
+✔ Test browserURLReturnsNilForUDPPublishedPorts() passed after 0.484 seconds.
+✔ Test browserURLResolvesNilOrAllInterfacesHostToLocalhost() passed after 0.484 seconds.
+✔ Test sessionPutsContainerStoreIntoRuntimeMissingWhenConstructionFails() passed after 0.483 seconds.
+✔ Test missingDestinationParentProvidesMkdirManualFallback() passed after 0.483 seconds.
+✔ Test browserURLUsesASpecificBoundHostAddressVerbatim() passed after 0.483 seconds.
+✔ Test prepareInstallerReportsFailedOnDownloadFailure() passed after 0.483 seconds.
+✔ Test resetDownloadPhaseReturnsToIdle() passed after 0.483 seconds.
+✔ Test prepareInstallerFallsBackToReleasePageWhenNoPkgAssetExists() passed after 0.483 seconds.
+✔ Test prepareInstallerDownloadsThePkgAndReportsHonestInstructions() passed after 0.483 seconds.
+✔ Test prepareInstallerNeverInvokesTheRuntimeFactoryAsInstallExecution() passed after 0.483 seconds.
+✔ Test prepareInstallerReportsFailedOnReleaseFetchFailure() passed after 0.483 seconds.
+✔ Test prepareInstallerPrefersSignedPkgOverUnsignedWhenBothArePresent() passed after 0.483 seconds.
+✔ Test makeDetailStoreReturnsNilWhenConstructionHitRuntimeMissing() passed after 0.483 seconds.
+✔ Test refreshReportsMissingWhenRuntimeFactoryThrowsBinaryNotFound() passed after 0.484 seconds.
+✔ Test downPreviewMatchesCapsuleOwnedResourcesAndExcludesUnconfiguredOrphans() passed after 0.486 seconds.
+✔ Test downKeepsOrphansUnlessRequestedAndUsesStopGracePeriod() passed after 0.487 seconds.
+✔ Test diagnosticsHealthyRuntimeProducesReadyFinalSnapshot() passed after 0.487 seconds.
+✔ Test diagnosticsStoppedRuntimeAndNewReleaseNeedAction() passed after 0.487 seconds.
+✔ Test diagnosticsMissingBinaryFailsAndSkipsDependentChecks() passed after 0.487 seconds.
+✔ Test diagnosticsRejectsUnsupportedRuntimeMajor() passed after 0.487 seconds.
+✔ Test driftUsesStoredStoppedDesiredState() passed after 0.487 seconds.
+✔ Test buildRequestResolverDetectsDockerfileAndRedactsArgumentValuesFromHistory() passed after 0.487 seconds.
+✔ Test alwaysPolicyRestartsStoppedContainerThroughPollerEvent() passed after 0.487 seconds.
+✔ Test lineStreamHandlesPartialChunksCRLFAndNoTrailingNewline() passed after 0.488 seconds.
+✔ Test gatewayPassesThroughSystemStartAndSystemStopAndTheFakeRecordsThem() passed after 0.488 seconds.
+✔ Test refreshReportsUpToDateWhenInstalledMatchesLatest() passed after 0.488 seconds.
+✔ Test refreshDegradesUpdateStatusToNilOnNetworkFailureWithoutHidingPresence() passed after 0.488 seconds.
+✔ Test startContainerFailureSetsLastActionErrorWithTheRealMessage() passed after 0.488 seconds.
+✔ Test composeRefreshMergesStoredAndRuntimeOnlyProjectsWithoutDroppingMissingSources() passed after 0.488 seconds.
+✔ Test deleteSucceedsThenTriggersARefresh() passed after 0.488 seconds.
+✔ Test composeRefreshKeepsPersistedProjectsWhenRuntimeDiscoveryPartiallyFails() passed after 0.488 seconds.
+✔ Test waitUntilExitReportsShellExitCode() passed after 0.488 seconds.
+✔ Test resourceInventoryLoadsListsAndInspectsThroughRuntimeProtocol() passed after 0.488 seconds.
+✔ Test stopRuntimeFailureSurfacesAsLastActionError() passed after 0.488 seconds.
+✔ Test openTabDetectsShellAndConnects() passed after 0.487 seconds.
+✔ Test startRuntimeFailureSurfacesAsLastActionErrorAndSkipsRefresh() passed after 0.487 seconds.
+✔ Test restartContainerRecordsStopThenStartInOrder() passed after 0.487 seconds.
+✔ Test pullImageStreamsStderrThenThrowsWithTailOnNonZeroExit() passed after 0.482 seconds.
+✔ Test lineStreamThrowsWithOtherFDTailOnNonZeroExit() passed after 0.465 seconds.
+✔ Test lineStreamYieldsMultipleLinesInOrder() passed after 0.465 seconds.
+✔ Test argvEchoPullImageIncludesPlatformWhenProvided() passed after 0.487 seconds.
+✔ Test logsFinishesCleanlyOnZeroExit() passed after 0.489 seconds.
+✔ Test resourceInventoryToleratesTypedListToInspectDeletionChurn() passed after 0.450 seconds.
+✔ Test imagesDismissActionErrorClearsIt() passed after 0.500 seconds.
+✔ Test startContainerRecordsTheCallAndClearsNoError() passed after 0.500 seconds.
+✔ Test ensureImagePullsWhenOnlyADifferentReferenceExists() passed after 0.503 seconds.
+✔ Test systemDismissActionErrorClearsIt() passed after 0.504 seconds.
+✔ Test imagesRefreshSurfacesAFailureAsThePhase() passed after 0.504 seconds.
+✔ Test refreshLoadsCannedImages() passed after 0.503 seconds.
+✔ Test refreshReportsPresentAndUpdateAvailableWhenLatestReleaseIsNewer() passed after 0.503 seconds.
+✔ Test activateRecordsAnInspectFailureWithoutThrowing() passed after 0.503 seconds.
+✔ Test openTwoTabsAndSwitchSelection() passed after 0.503 seconds.
+✔ Test openTabSurfacesShellDetectionFailureAsFailedState() passed after 0.503 seconds.
+✔ Test closeTabCancelsWatcherBeforeItObservesASimulatedExit() passed after 0.502 seconds.
+✔ Test pollerStartIsIdempotent() passed after 0.470 seconds.
+✔ Test projectLogsSpoolEveryDeliveredLine() passed after 0.510 seconds.
+✔ Test projectLogsFollowRunningServicesAndReadStoppedServiceTailWithoutFollowing() passed after 0.511 seconds.
+✔ Test ensureImageSkipsPullWhenExactReferenceAlreadyExists() passed after 0.511 seconds.
+✔ Test executorRefreshesHostsWithResolvedPeerIPsWithoutShellInterpolation() passed after 0.511 seconds.
+✔ Test supervisorNeverGuessesOnFailureExitStatus() passed after 0.511 seconds.
+✔ Test argvEchoCreateVolumeSortsLabelsAndAppendsInternalOnNetworkOnly() passed after 0.511 seconds.
+✔ Test argvEchoListContainersWithoutAllOmitsFlag() passed after 0.511 seconds.
+✔ Test inspectContainerDecodesSingleElementFromArrayResponse() passed after 0.511 seconds.
+✔ Test createContainerParsesStdoutIDAmidStderrProgressNoise() passed after 0.511 seconds.
+✔ Test argvEchoKillContainerPassesSignalAndID() passed after 0.511 seconds.
+✔ Test argvEchoCreateNetworkAppendsInternalFlagWhenRequested() passed after 0.511 seconds.
+✔ Test subprocessCapturesStdout() passed after 0.511 seconds.
+✔ Test argvEchoExecDefaultIdentityRemainsByteForByteUnchanged() passed after 0.511 seconds.
+✔ Test execReturnsNonZeroExitCodeAsALegitimateResultNotAThrow() passed after 0.511 seconds.
+✔ Test subprocessCapturesStderrAndExitCode() passed after 0.511 seconds.
+✔ Test inspectContainerThrowsDecodingFailedOnEmptyArray() passed after 0.490 seconds.
+✔ Test systemRefreshSurfacesAFailureAsThePhase() passed after 0.514 seconds.
+✔ Test refreshLoadsCannedStatusAndDiskUsage() passed after 0.512 seconds.
+✔ Test tagFailureSurfacesAsLastActionErrorAndSkipsRefresh() passed after 0.514 seconds.
+✔ Test supervisorUserStopPersistsIntentAndPreventsAlwaysRestart() passed after 0.515 seconds.
+✔ Test argvEchoInspectContainerNeverAppendsFormatJSON() passed after 0.483 seconds.
+✔ Test argvEchoListContainersAppendsAllAndFormatJSON() passed after 0.476 seconds.
+✔ Test activateLoadsDetailAndDeactivateClearsEverything() passed after 0.513 seconds.
+✔ Test makeDetailStoreBuildsAWorkingStoreOnTheSharedPipeline() passed after 0.513 seconds.
+✔ Test restartContainerStopsAtTheFailingStepAndRecordsItsError() passed after 0.513 seconds.
+✔ Test closeTabTerminatesSessionAndRemovesTab() passed after 0.512 seconds.
+✘ Test cooperativeTerminateReapsChildAndClosesMasterFD() recorded an issue at PTYExecSessionTests.swift:96:5: Expectation failed: (fcntl(masterFD, F_GETFD) → 0) == -1
+↳ // Master fd closed: `fcntl(fd, F_GETFD)` fails once the fd is closed.
+✔ Test argvEchoExecContainerRootPrecedesIDAndPreservesNonZeroResult() passed after 0.476 seconds.
+✔ Test composeServiceOperationsPersistUserIntentForResidentSupervision() passed after 0.517 seconds.
+✔ Test stopRuntimeRecordsTheCallAndRefreshes() passed after 0.514 seconds.
+✔ Test startRuntimeRecordsTheCallAndRefreshes() passed after 0.514 seconds.
+✔ Test makeImagesStoreAndMakeSystemStoreBuildWorkingStoresOnTheSharedPipeline() passed after 0.515 seconds.
+✘ Test cooperativeTerminateReapsChildAndClosesMasterFD() failed after 0.516 seconds with 1 issue.
+✔ Test supervisorRestoresHistoricalHealthThenPersistsLiveProbeAfterRelaunch() passed after 0.519 seconds.
+✔ Test tagSucceedsThenTriggersARefresh() passed after 0.518 seconds.
+✔ Test executorRunsParallelLayersAndEmitsOperationScopedProgress() passed after 0.519 seconds.
+✔ Test gatewayForwardsRichResourceBuildAndPruneOperations() passed after 0.518 seconds.
+✔ Test argvEchoStatsUsesNoStreamPollShape() passed after 0.494 seconds.
+✔ Test upReplacesStaleProjectReopenMetadata() passed after 0.521 seconds.
+✔ Test downThenStatusTreatsRemovedStoppedServicesAsConverged() passed after 0.523 seconds.
+✔ Test metricsStoreClearsSamplesWhenNoContainersAreVisible() passed after 0.527 seconds.
+✔ Test upMergesExistingSupervisorStateAndPersistsExactSourceFile() passed after 0.532 seconds.
+✔ Test dismissPullResetsToIdle() passed after 0.531 seconds.
+✔ Test pullSurfacesAnInjectedFailureAsPullPhaseFailed() passed after 0.530 seconds.
+✔ Test sessionExitingOnItsOwnTransitionsTabToExitedState() passed after 0.529 seconds.
+✔ Test metricsStorePublishesOnlyRequestedContainersAndTotalsMemory() passed after 0.532 seconds.
+✔ Test supervisorResumesAlwaysRestartPolicyFromAuthoritativeRelaunchSnapshot() passed after 0.533 seconds.
+✔ Test supervisorReconcileReportOnlyNeverMutatesAndHealStartsStoppedDesiredService() passed after 0.534 seconds.
+✔ Test composeDetailReplaysSavedProjectOverrideAndExplicitEnvironmentFile() passed after 0.540 seconds.
+✔ Test currentContainersMirrorsPhaseAcrossEveryCase() passed after 0.539 seconds.
+✔ Test containerStateChangedForTheActiveIDTriggersARefresh() passed after 0.541 seconds.
+✔ Test stopAllRunningStillSurfacesARealFailure() passed after 0.546 seconds.
+✔ Test networkStoreProtectsBuiltInAndCreatesRichNetworkSpecs() passed after 0.547 seconds.
+✔ Test menuBarStoreDerivesRuntimeUpAndRunningCountThroughTheSharedStore() passed after 0.550 seconds.
+✔ Test stopAllRunningStopsExactlyTheRunningIDs() passed after 0.550 seconds.
+✔ Test machineListAndInspectDecodeRuntimeOnePointOneJSON() passed after 0.529 seconds.
+✔ Test argvEchoRichVolumeAndNetworkCreateSpecsMapCapacityConnectivityAndSubnets() passed after 0.512 seconds.
+✔ Test stopAllRunningToleratesAnAlreadyStoppedErrorAndStillStopsTheRest() passed after 0.554 seconds.
+✔ Test sessionStartsTheContainersSubscriptionBeforeThePollerSoTheFirstSnapshotIsNeverDropped() passed after 0.554 seconds.
+✔ Test volumeStoreLoadsReverseReferencesAndDrivesMutations() passed after 0.556 seconds.
+✔ Test containerStateChangedForADifferentIDIsIgnored() passed after 0.554 seconds.
+✔ Test composeDownPreviewIsPreparedBeforeAnyMutationRuns() passed after 0.560 seconds.
+✔ Test machinesStoreLoadsInspectsControlsAndStreamsLogsThroughRuntime() passed after 0.562 seconds.
+✔ Test statsTicksPopulateTheSeriesOnlyOnceVisible() passed after 0.561 seconds.
+✔ Test deactivateTearsDownTheLiveStatsStream() passed after 0.565 seconds.
+✔ Test gatewayDifferentIDMutationsOverlapConcurrently() passed after 0.564 seconds.
+✔ Test gatewayReadsOverlapAPendingMutation() passed after 0.564 seconds.
+✔ Test pullProgressesThroughLinesToDoneAndTriggersARefresh() passed after 0.574 seconds.
+✔ Test storeReflectsLiveContainerUpdatesFromThePoller() passed after 0.575 seconds.
+✔ Test composeImportCreatesAProjectAndPreparesAReviewablePlan() passed after 0.587 seconds.
+✔ Test volumePruneDerivesRemovedNamesFromBeforeAndAfterLists() passed after 0.565 seconds.
+✔ Test networkPruneDerivesRemovedNamesFromBeforeAndAfterLists() passed after 0.569 seconds.
+✔ Test subprocessTimeoutPathStillTerminatesPromptly() passed after 0.617 seconds.
+✔ Test subprocessTimesOutAndTerminates() passed after 0.597 seconds.
+✔ Test logLinesAreRingBufferedToTwoThousand() passed after 0.633 seconds.
+✔ Test setStatsVisibleFalseTearsDownTheLiveStatsStream() passed after 0.632 seconds.
+✔ Test storeGoesUnavailableOnListFailureThenRecoversOnClear() passed after 0.635 seconds.
+✔ Test echoRoundTrip() passed after 0.635 seconds.
+✔ Test resizePropagatesToChildViaSttySize() passed after 0.635 seconds.
+✔ Test sessionOwnsResidentComposeSupervisionAndResumesRestartFromItsFirstSnapshot() passed after 0.635 seconds.
+✔ Test gatewaySameIDMutationsAreStrictlyOrderedNeverInterleaved() passed after 0.653 seconds.
+✔ Test gatewayVolumePruneDoesNotRaceVolumeCreation() passed after 0.635 seconds.
+✔ Test gatewayCancelledWaiterDoesNotWedgeTheLane() passed after 0.725 seconds.
+✔ Test pollerLifecycleEmitsExpectedEventSequence() passed after 0.719 seconds.
+✔ Test argvEchoMachineCreateStartAndLogsUseVerifiedRuntimeShapes() passed after 0.771 seconds.
+✔ Test argvEchoBuildImageUsesDeterministicFullSpecAndStreamsProgress() passed after 0.754 seconds.
+✔ Test terminateFallsBackToSIGKILLWhenGracePeriodExpires() passed after 0.793 seconds.
+✔ Test twoSessionsNeverCrossStreams() passed after 0.794 seconds.
+✔ Test subprocessEscalatesToSIGKILLWhenTERMIsIgnored() passed after 1.121 seconds.
+✔ Test lineStreamConsumerCancelKillsTheChildPromptly() passed after 1.128 seconds.
+✔ Test composeLogDisplayIsBoundedWhileEngineSpoolsTheFullStream() passed after 1.495 seconds.
+✘ Test run with 319 tests in 1 suite failed after 1.498 seconds with 1 issue.
+Error: Process completed with exit code 1.
