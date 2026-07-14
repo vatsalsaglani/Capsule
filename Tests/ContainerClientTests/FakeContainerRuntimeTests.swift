@@ -9,6 +9,8 @@ import ContainerClientTestSupport
 
     await fake.setCLIVersion(SemanticVersion(major: 1, minor: 2, patch: 3))
     await fake.setSystemStatus(SystemStatus(status: "running"))
+    let kernelReadiness = DefaultKernelReadiness.configured(for: .arm64)
+    await fake.setDefaultKernelReadiness(kernelReadiness)
     let diskUsage = SystemDiskUsage(
         containers: ResourceUsage(total: 1, active: 1, sizeInBytes: 10, reclaimableBytes: 0),
         images: ResourceUsage(total: 2, active: 1, sizeInBytes: 20, reclaimableBytes: 5),
@@ -52,6 +54,7 @@ import ContainerClientTestSupport
     // existential, not the concrete actor type.
     #expect(try await runtime.cliVersion() == SemanticVersion(major: 1, minor: 2, patch: 3))
     #expect(try await runtime.systemStatus() == SystemStatus(status: "running"))
+    #expect(try await runtime.defaultKernelReadiness() == kernelReadiness)
     #expect(try await runtime.systemDiskUsage() == diskUsage)
     #expect(try await runtime.listContainers(all: true) == [summary])
     #expect(try await runtime.inspectContainer(id: "web-1") == detail)
@@ -108,6 +111,7 @@ import ContainerClientTestSupport
     let expectedCalls: [FakeContainerRuntime.Call] = [
         .cliVersion,
         .systemStatus,
+        .defaultKernelReadiness,
         .systemDiskUsage,
         .listContainers(all: true),
         .inspectContainer(id: "web-1"),
@@ -167,6 +171,7 @@ import ContainerClientTestSupport
     #expect(try await fake.listContainers(all: false).isEmpty)
     #expect(try await fake.cliVersion() == SemanticVersion(major: 1, minor: 1, patch: 0))
     #expect(try await fake.systemStatus().status == "running")
+    #expect(try await fake.defaultKernelReadiness() == .configured())
 }
 
 @Test func fakeContainerRuntimeSupportsBuildAndTypedPruneOperations() async throws {

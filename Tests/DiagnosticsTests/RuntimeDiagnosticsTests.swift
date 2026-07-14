@@ -27,6 +27,7 @@ private func finalSnapshot(from provider: RuntimeDiagnosticsProviding) async -> 
     #expect(snapshot?.checks.first(where: { $0.id == .binary })?.status == .failed)
     #expect(snapshot?.checks.first(where: { $0.id == .version })?.status == .skipped)
     #expect(snapshot?.checks.first(where: { $0.id == .runtimeStatus })?.status == .skipped)
+    #expect(snapshot?.checks.first(where: { $0.id == .defaultKernel })?.status == .skipped)
 }
 
 @Test func diagnosticsHealthyRuntimeProducesReadyFinalSnapshot() async {
@@ -67,7 +68,55 @@ private func finalSnapshot(from provider: RuntimeDiagnosticsProviding) async -> 
 
     #expect(snapshot?.overall == .needsAction)
     #expect(snapshot?.checks.first(where: { $0.id == .runtimeStatus })?.status == .warning)
+    #expect(snapshot?.checks.first(where: { $0.id == .defaultKernel })?.status == .skipped)
     #expect(snapshot?.checks.first(where: { $0.id == .update })?.status == .warning)
+}
+
+@Test func diagnosticsMissingDefaultKernelFailsWithArchitectureSpecificCommand() async {
+    let runtime = FakeContainerRuntime()
+    await runtime.setDefaultKernelReadiness(.notConfigured(for: .arm64))
+    let provider = RuntimeDiagnostics(
+        locateBinary: { "/usr/local/bin/container" },
+        makeRuntime: { runtime },
+        fetchLatestRelease: {
+            GitHubRelease(
+                tagName: "1.1.0",
+                htmlURL: URL(string: "https://github.com/apple/container/releases/tag/1.1.0")!
+            )
+        }
+    )
+
+    let snapshot = await finalSnapshot(from: provider)
+    let check = snapshot?.checks.first(where: { $0.id == .defaultKernel })
+
+    #expect(snapshot?.overall == .failed)
+    #expect(check?.status == .failed)
+    #expect(check?.summary == "Default arm64 kernel is not configured")
+    #expect(check?.remediation?.action == .configureDefaultKernel(
+        command: "container system kernel set --recommended --arch arm64"
+    ))
+}
+
+@Test func diagnosticsKernelQueryFailureIsAnActionableWarning() async {
+    let runtime = FakeContainerRuntime()
+    await runtime.setError(DiagnosticFixtureError(), for: .defaultKernelReadiness)
+    let provider = RuntimeDiagnostics(
+        locateBinary: { "/usr/local/bin/container" },
+        makeRuntime: { runtime },
+        fetchLatestRelease: {
+            GitHubRelease(
+                tagName: "1.1.0",
+                htmlURL: URL(string: "https://github.com/apple/container/releases/tag/1.1.0")!
+            )
+        }
+    )
+
+    let snapshot = await finalSnapshot(from: provider)
+    let check = snapshot?.checks.first(where: { $0.id == .defaultKernel })
+
+    #expect(snapshot?.overall == .needsAction)
+    #expect(check?.status == .warning)
+    #expect(check?.remediation?.action == .retry)
 }
 
 @Test func diagnosticsRejectsUnsupportedRuntimeMajor() async {

@@ -196,6 +196,68 @@ struct ScriptedCLITests {
     }
 }
 
+@Test func defaultKernelReadinessMirrorsRuntimeDefaultSelection() async throws {
+    let appRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("capsule-kernel-ready-\(UUID().uuidString)", isDirectory: true)
+    let kernels = appRoot.appendingPathComponent("kernels", isDirectory: true)
+    try FileManager.default.createDirectory(at: kernels, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: appRoot) }
+
+    let kernel = kernels.appendingPathComponent("vmlinux-test")
+    try Data([0x01]).write(to: kernel)
+    let selection = kernels.appendingPathComponent(
+        "default.kernel-\(RuntimeArchitecture.current.rawValue)"
+    )
+    try FileManager.default.createSymbolicLink(
+        atPath: selection.path,
+        withDestinationPath: kernel.path
+    )
+
+    let statusJSON = String(
+        decoding: try JSONEncoder().encode(SystemStatus(status: "running", appRoot: appRoot.path)),
+        as: UTF8.self
+    )
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    cat <<'JSON'
+    \(statusJSON)
+    JSON
+    exit 0
+    """)
+
+    let client = try CLIProcessClient(binaryPath: script)
+    let readiness = try await client.defaultKernelReadiness()
+
+    #expect(readiness == .configured())
+}
+
+@Test func defaultKernelReadinessReportsMissingSelectionWithoutMutatingRuntime() async throws {
+    let appRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent("capsule-kernel-missing-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: appRoot, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: appRoot) }
+
+    let statusJSON = String(
+        decoding: try JSONEncoder().encode(SystemStatus(status: "running", appRoot: appRoot.path)),
+        as: UTF8.self
+    )
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    cat <<'JSON'
+    \(statusJSON)
+    JSON
+    exit 0
+    """)
+
+    let client = try CLIProcessClient(binaryPath: script)
+    let readiness = try await client.defaultKernelReadiness()
+
+    #expect(readiness == .notConfigured())
+    #expect(!FileManager.default.fileExists(
+        atPath: appRoot.appendingPathComponent("kernels").path
+    ))
+}
+
 // MARK: - argv-echo: exact arguments sent for each command shape
 
 @Test func argvEchoListContainersAppendsAllAndFormatJSON() async throws {
