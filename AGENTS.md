@@ -92,16 +92,23 @@ out to be wrong, correct it in place and say what changed.
 - [`docs/learnings/2026-07-13-container-exit-status-gap.md`](docs/learnings/2026-07-13-container-exit-status-gap.md) — `container` 1.1.0 inspect/list JSON reports only `stopped` for a process that exited 7; no exit code/signal/reason is exposed, so CLI-polling cannot honestly implement exact `restart: on-failure` semantics
 - [`docs/learnings/2026-07-13-resource-prune-contract.md`](docs/learnings/2026-07-13-resource-prune-contract.md) — `container` 1.1.0 volume/network prune expose no JSON/`--format`; typed removed names must be derived from before/after JSON lists while raw output remains notices
 - [`docs/learnings/2026-07-13-project-store-path-safety.md`](docs/learnings/2026-07-13-project-store-path-safety.md) — ProjectStore paths require both lexical containment and a second symlink-resolved containment check; standardization alone does not stop an existing project-directory symlink from redirecting writes outside `projects/`
+- [`docs/learnings/2026-07-14-frontend-supervision-checkpointing.md`](docs/learnings/2026-07-14-frontend-supervision-checkpointing.md) — frontend residency needs durable intent/health/restart-deadline checkpoints; restored health is stale until a live probe, start-period is not re-granted, and supervised restarts refresh managed hosts
+- [`docs/learnings/2026-07-14-local-diagnostics-lifecycle.md`](docs/learnings/2026-07-14-local-diagnostics-lifecycle.md) — async cleanup from `applicationWillTerminate` is unreliable; use delayed AppKit termination, label leftover markers as unclean (not proven crashes), and persist only bounded structured local incidents with no uploader
+- [`docs/learnings/2026-07-14-branch-release-pages.md`](docs/learnings/2026-07-14-branch-release-pages.md) — branch-only release UX still requires a workflow-managed Git tag; gate the exact `main` CI SHA, keep full prerelease SemVer outside `CFBundleShortVersionString`, and tag a deterministic version-only child commit so source archives match binaries
 - [`docs/learnings/2026-07-13-bundled-cli-path-install.md`](docs/learnings/2026-07-13-bundled-cli-path-install.md) — `Capsule`/`capsule` case-collide in `Contents/MacOS`; build the real CLI as a nested Xcode target in `Contents/Helpers`, and manage only a validated `/usr/local/bin/capsule` symlink without editing shell profiles or invoking sudo
 - [`docs/learnings/2026-07-13-compose-pull-progress.md`](docs/learnings/2026-07-13-compose-pull-progress.md) — `container pull`'s anchored stage/phase/percent/blob/bytes/rate/elapsed grammar (including inherited units), plus Capsule's TTY capability gate, bounded plain fallback, stable service colors, sanitization, resize, and cleanup rules
 - [`docs/learnings/2026-07-13-compose-hosts-exec-identity.md`](docs/learnings/2026-07-13-compose-hosts-exec-identity.md) — `container exec --user 0` must precede the container ID; only Capsule's fixed managed-hosts reconciliation elevates to container-local UID 0, while user exec, health probes, shell detection, and PTY sessions preserve the service/image identity
 - [`docs/learnings/2026-07-13-replaceable-stream-task-generation.md`](docs/learnings/2026-07-13-replaceable-stream-task-generation.md) — cancelling an actor-owned stream task does not prevent its deferred cleanup/error path from overwriting a replacement; gate writes with a generation token; SwiftUI `.task` follows view identity, so replaceable inputs need an explicit `.id`/`.task(id:)` lifecycle boundary
 - [`docs/learnings/2026-07-13-container-image-logo-metadata.md`](docs/learnings/2026-07-13-container-image-logo-metadata.md) — OCI/registry metadata has no portable image-logo field; resolve public Docker Official Image logos through an optional provider, cache by tag-free repository identity (including negative results), never leak private references, and preserve Capsule's blue fallback
+- [`docs/learnings/2026-07-14-builder-machine-runtime-contract.md`](docs/learnings/2026-07-14-builder-machine-runtime-contract.md) — `container` 1.1.0 builder/machine JSON and lifecycle ground truth: empty arrays are typed absence, machine start is `run --root --name ID true`, unknown states stay visible, build progress redacts argument values, and actor reentrancy requires reserving builds before history awaits
 
 ## Releases
 
-GitHub is the release channel. Tags `v*` trigger `.github/workflows/release.yml`
-(draft release + CLI tar.gz + checksums). Alphas `v0.0.x` from Phase 1, public
-`v0.1.0` at Phase 4 with notarized dmg + Homebrew tap (see ROADMAP). Don't tag
-or publish releases without being asked. License is TBD — must be chosen
-before the repo goes public.
+GitHub is the release channel. Pushing `release/v<semver>` triggers
+`.github/workflows/release.yml` only when that exact commit passed `main` CI;
+the workflow stamps versions, creates GitHub's required tag, publishes assets,
+and deploys the docs. A prerelease suffix marks the GitHub release as a
+pre-release. Alphas are `v0.0.x`; public `v0.1.0` still requires Phase 4's
+notarized dmg + Homebrew tap (see ROADMAP). Don't create a release branch,
+tag, or publication without being asked. Capsule is Apache-2.0 licensed,
+matching apple/container.
