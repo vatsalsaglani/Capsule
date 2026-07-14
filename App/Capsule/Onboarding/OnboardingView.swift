@@ -15,46 +15,51 @@ struct OnboardingView: View {
     @Environment(DiagnosticsStore.self) private var diagnostics
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Image(systemName: "shippingbox")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
+        ZStack {
+            CapsulePalette.background
+                .ignoresSafeArea()
 
-                VStack(spacing: 8) {
-                    Text("Container Runtime Not Found")
-                        .font(.title2.weight(.semibold))
-                    Text(
-                        "Capsule manages containers through Apple's `container` command-line "
-                            + "runtime, and it isn't installed (or Capsule couldn't find it)."
+            ScrollView {
+                VStack(spacing: 20) {
+                    Image(systemName: "shippingbox")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+
+                    VStack(spacing: 8) {
+                        Text("Container Runtime Not Found")
+                            .font(.title2.weight(.semibold))
+                        Text(
+                            "Capsule manages containers through Apple's `container` command-line "
+                                + "runtime, and it isn't installed (or Capsule couldn't find it)."
+                        )
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 420)
+                    }
+
+                    RuntimeDiagnosticChecksView(
+                        store: diagnostics,
+                        onRefresh: { Task { await runChecks() } },
+                        onAction: handleDiagnosticAction
                     )
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
-                }
-
-                RuntimeDiagnosticChecksView(
-                    store: diagnostics,
-                    onRefresh: { Task { await runChecks() } },
-                    onAction: handleDiagnosticAction
-                )
-                .frame(maxWidth: 560)
-
-                downloadSection
-
-                // Honest runtime-installation copy (rules 7 and 10, AGENTS.md).
-                Text("Capsule never installs the Apple container runtime for you—it only downloads its installer and hands it off. You run it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
-
-                CommandLineToolSection(store: cliInstallStore)
                     .frame(maxWidth: 560)
+
+                    downloadSection
+
+                    // Honest runtime-installation copy (rules 7 and 10, AGENTS.md).
+                    Text("Capsule downloads Apple's signed package, but installation is a separate step you complete in Finder and Installer.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 480)
+
+                    CommandLineToolSection(store: cliInstallStore)
+                        .frame(maxWidth: 560)
+                }
+                .padding(40)
+                .frame(maxWidth: .infinity)
             }
-            .padding(40)
-            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(CapsuleMotion.standard, value: phaseKey)
@@ -85,6 +90,10 @@ struct OnboardingView: View {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString("container system start", forType: .string)
+        case .configureDefaultKernel(let command):
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(command, forType: .string)
         }
     }
 
@@ -111,24 +120,16 @@ struct OnboardingView: View {
             }
 
         case .ready(let localURL, let humanInstructions):
-            VStack(spacing: 12) {
-                Text(humanInstructions)
-                    .font(.callout)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
-                HStack(spacing: 12) {
-                    Button(localURL.isFileURL ? "Reveal in Finder" : "Open Release Page") {
-                        reveal(localURL)
-                    }
-                    .keyboardShortcut(.defaultAction)
-                    Button("Check Again") {
-                        Task {
-                            model.resetDownloadPhase()
-                            await model.refresh()
-                        }
-                    }
+            InstallerHandoffView(
+                localURL: localURL,
+                humanInstructions: humanInstructions
+            ) {
+                Task {
+                    model.resetDownloadPhase()
+                    await runChecks()
                 }
             }
+            .frame(maxWidth: 560)
 
         case .failed(let message):
             VStack(spacing: 12) {
@@ -141,17 +142,6 @@ struct OnboardingView: View {
                     Task { await model.prepareInstaller() }
                 }
             }
-        }
-    }
-
-    /// File URL → reveal the download in Finder; web URL (the no-`.pkg`
-    /// fallback) → open it in the default browser. Never anything that
-    /// executes the installer (rule 7).
-    private func reveal(_ url: URL) {
-        if url.isFileURL {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-        } else {
-            NSWorkspace.shared.open(url)
         }
     }
 
