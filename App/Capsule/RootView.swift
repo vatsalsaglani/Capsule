@@ -68,6 +68,7 @@ struct RootView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .tint(CapsulePalette.accent)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task {
@@ -82,11 +83,27 @@ struct RootView: View {
 
     private var shell: some View {
         NavigationSplitView {
-            List(SidebarItem.allCases, selection: $selection) { item in
-                Label(item.title, systemImage: item.systemImage)
-                    .tag(item)
+            VStack(spacing: 0) {
+                List(SidebarItem.allCases, selection: $selection) { item in
+                    Label(item.title, systemImage: item.systemImage)
+                        .tag(item)
+                }
+                .listStyle(.sidebar)
+
+                Divider()
+
+                Button {
+                    selection = .system
+                } label: {
+                    RuntimeStatusIndicator(status: runtimeStatus)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .help("Open runtime status and diagnostics")
             }
-            .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } detail: {
             switch selection ?? .containers {
@@ -107,6 +124,25 @@ struct RootView: View {
             case .machines:
                 MachinesView(session: session)
             }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                RuntimeStatusIndicator(
+                    status: runtimeStatus,
+                    showsLabel: false
+                )
+            }
+        }
+    }
+
+    private var runtimeStatus: RuntimeStatusIndicator.Status {
+        switch session.containers.phase {
+        case .connecting:
+            .checking
+        case .loaded:
+            .running
+        case .runtimeMissing, .unavailable:
+            .unavailable
         }
     }
 }

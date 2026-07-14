@@ -266,6 +266,8 @@ struct SystemView: View {
             }
         case .installRuntime(let releasePage), .updateRuntime(let releasePage):
             NSWorkspace.shared.open(releasePage)
+        case .configureDefaultKernel(let command):
+            copyToPasteboard(command)
         case .retry:
             Task { await diagnostics.refresh() }
         }
