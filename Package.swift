@@ -21,6 +21,7 @@ let package = Package(
         .library(name: "AppCore", targets: ["AppCore"]),
         .library(name: "RuntimeInstaller", targets: ["RuntimeInstaller"]),
         .library(name: "Diagnostics", targets: ["Diagnostics"]),
+        .library(name: "BuildManager", targets: ["BuildManager"]),
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
@@ -56,6 +57,7 @@ let package = Package(
         .target(name: "AppCore", dependencies: [
             "ContainerClient", "EventBus", "TerminalKit", "ComposeSpec",
             "ComposeRuntime", "ProjectStore", "Supervisor", "Diagnostics",
+            "BuildManager",
         ]),
         // P1D: runtime install/update evaluation + download handoff (never
         // executes the installer, rule 7 AGENTS.md). No SwiftUI import here —
@@ -64,6 +66,9 @@ let package = Package(
         // P4: one shared doctor state machine plus a separate, local-only
         // incident store. Neither frontend owns diagnostic policy.
         .target(name: "Diagnostics", dependencies: ["ContainerClient"]),
+        // Direct builds are durable Capsule operations: runtime execution,
+        // cancellation, redacted history, and builder lifecycle live here.
+        .target(name: "BuildManager", dependencies: ["ContainerClient"]),
         .executableTarget(name: "CapsuleCLI", dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             "ContainerClient",
@@ -72,6 +77,7 @@ let package = Package(
             "ComposeRuntime",
             "ProjectStore",
             "Diagnostics",
+            "BuildManager",
         ]),
         .testTarget(name: "ContainerClientTests", dependencies: ["ContainerClient", "ContainerClientTestSupport", "EventBus"]),
         .testTarget(name: "ComposeSpecTests", dependencies: ["ComposeSpec"]),
@@ -91,6 +97,7 @@ let package = Package(
         .testTarget(name: "TerminalKitTests", dependencies: ["TerminalKit", "ContainerClient", "ContainerClientTestSupport"]),
         .testTarget(name: "RuntimeInstallerTests", dependencies: ["RuntimeInstaller", "ContainerClient", "ContainerClientTestSupport"]),
         .testTarget(name: "DiagnosticsTests", dependencies: ["Diagnostics", "ContainerClient", "ContainerClientTestSupport"]),
+        .testTarget(name: "BuildManagerTests", dependencies: ["BuildManager", "ContainerClient", "ContainerClientTestSupport"]),
         .testTarget(name: "CapsuleCLITests", dependencies: [
             "CapsuleCLI",
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
