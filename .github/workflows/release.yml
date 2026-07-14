@@ -1,30 +1,218 @@
 name: Release
 
-# CLI binaries on tag push. The notarized app dmg is a Phase 4 deliverable
-# (docs/ROADMAP.md) and will join this workflow then.
+# Branch-driven releases. The workflow creates the Git tag required by GitHub
+# Releases; maintainers only create/push release/v<semver> branches.
 on:
   push:
-    tags: ["v*"]
+    branches:
+      - "release/v*"
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  cli:
+  release:
+    name: Verify, package, and publish
     runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      release_sha: ${{ steps.release_commit.outputs.sha }}
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Build capsule CLI
-        run: swift build -c release --product capsule
-      - name: Package
-        run: |
-          BIN_DIR=$(swift build -c release --product capsule --show-bin-path)
-          tar -C "$BIN_DIR" -czf "capsule-${{ github.ref_name }}-arm64-apple-macos.tar.gz" capsule
-          shasum -a 256 capsule-*.tar.gz > checksums.txt
-      - name: Draft release
-        uses: softprops/action-gh-release@v2
+      - name: Check out release branch
+        uses: actions/checkout@v6
         with:
-          draft: true
-          files: |
-            capsule-*.tar.gz
-            checksums.txt
+          fetch-depth: 0
+
+      - name: Derive SemVer from branch
+        id: version
+        shell: zsh {0}
+        run: |
+          set -euo pipefail
+          BRANCH="$GITHUB_REF_NAME"
+          VERSION="${BRANCH#release/v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "Branch '$BRANCH' must be release/v<major>.<minor>.<patch>[-prerelease]." >&2
+            exit 1
+          fi
+          PRERELEASE=false
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=true
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Require successful CI for this exact commit on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=100" \
+            > "$RUNNER_TEMP/main-ci-runs.json"
+          if ! jq -e --arg sha "$GITHUB_SHA" '
+            [.workflow_runs[]
+              | select(.head_sha == $sha)
+              | select(.status == "completed")
+              | select(.conclusion == "success")]
+            | length > 0
+          ' "$RUNNER_TEMP/main-ci-runs.json" >/dev/null; then
+            echo "No successful CI run on main exists for $GITHUB_SHA." >&2
+            echo "Create the release branch from a commit that has already passed main CI." >&2
+            exit 1
+          fi
+
+      - name: Stamp version into the release source
+        id: release_commit
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          scripts/stamp-version.sh "$VERSION"
+          git diff --check
+          git add VERSION App/project.yml Sources/CapsuleCLI/CapsuleCommand.swift
+          if git diff --cached --quiet; then
+            RELEASE_SHA="$GITHUB_SHA"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            STAMP_DATE="$(git show -s --format=%cI "$GITHUB_SHA")"
+            GIT_AUTHOR_DATE="$STAMP_DATE" GIT_COMMITTER_DATE="$STAMP_DATE" \
+              git commit -m "Stamp Capsule v${VERSION}"
+            RELEASE_SHA="$(git rev-parse HEAD)"
+          fi
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build and verify release artifacts
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          scripts/package-alpha.sh "$TAG" dist
+          (cd dist && shasum -a 256 -c checksums.txt)
+
+      - name: Create the workflow-managed tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release_commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          REMOTE_SHA="$(git ls-remote origin "refs/tags/$TAG" | awk '{print $1}')"
+          if [[ -n "$REMOTE_SHA" && "$REMOTE_SHA" != "$RELEASE_SHA" ]]; then
+            echo "$TAG already points to $REMOTE_SHA, not $RELEASE_SHA." >&2
+            echo "Published versions are immutable; use a new release branch/version." >&2
+            exit 1
+          fi
+          if [[ -z "$REMOTE_SHA" ]]; then
+            git tag "$TAG" "$RELEASE_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          ASSETS=(
+            dist/Capsule-"$TAG".app.zip
+            dist/Capsule-"$TAG".dmg
+            dist/capsule-"$TAG"-arm64-apple-macos.tar.gz
+            dist/checksums.txt
+          )
+          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
+          Native macOS developer preview produced by Capsule's branch release workflow.
+
+          ### Install the app
+
+          1. Download the `.dmg`, open it, and copy Capsule to Applications.
+          2. This build is ad-hoc signed and not notarized. If you trust this release,
+             clear the download quarantine once before first launch:
+
+             ```sh
+             xattr -dr com.apple.quarantine /Applications/Capsule.app
+             ```
+
+          3. Open Capsule normally.
+
+          You can verify every downloaded asset against `checksums.txt` with
+          `shasum -a 256 -c checksums.txt`.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; replacing its assets."
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            FLAGS=(
+              --verify-tag
+              --title "Capsule $TAG"
+              --generate-notes
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+            )
+            if [[ "$PRERELEASE" == "true" ]]; then
+              FLAGS+=(--prerelease --latest=false)
+            fi
+            gh release create "$TAG" "${ASSETS[@]}" "${FLAGS[@]}"
+          fi
+
+  build-docs:
+    name: Build documentation
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out released source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Capsule docs
+        run: |
+          python -m pip install --requirement requirements-docs.txt
+          mkdocs build --strict
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy-docs:
+    name: Publish documentation
+    needs: build-docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

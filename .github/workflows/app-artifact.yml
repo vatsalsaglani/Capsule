@@ -2,17 +2,15 @@ name: App Artifact
 
 # Builds the Capsule.app bundle and uploads it as a downloadable workflow
 # artifact so people can try the app before there's a notarized dmg (Phase 4).
-# The app is UNSIGNED (ad-hoc only) — the README documents the one-time
-# quarantine-strip + self-sign a downloader runs to open it.
+# The app is ad-hoc signed, not Developer ID signed or notarized. The README
+# documents the one-time quarantine removal a downloader uses to open it.
 on:
   push:
     branches: [main]
-    # Also attach the app to tagged releases (the CLI is handled by release.yml).
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: app-artifact-${{ github.ref }}
@@ -22,7 +20,7 @@ jobs:
   build-app:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -30,7 +28,7 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate --spec App/project.yml --project App
 
-      - name: Build Capsule.app (Release, unsigned)
+      - name: Build Capsule.app (Release, ad-hoc packaging input)
         run: |
           set -euo pipefail
           xcodebuild \
@@ -50,7 +48,11 @@ jobs:
           echo "Built: $APP"
           CLI="$APP/Contents/Helpers/capsule"
           test -x "$CLI" || { echo "Embedded capsule CLI missing or not executable"; exit 1; }
-          "$CLI" --version
+          PRODUCT_VERSION="$(<VERSION)"
+          MARKETING_VERSION="${PRODUCT_VERSION%%-*}"
+          test "$("$CLI" --version)" = "$PRODUCT_VERSION"
+          test "$(plutil -extract CapsuleReleaseVersion raw "$APP/Contents/Info.plist")" = "$PRODUCT_VERSION"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" = "$MARKETING_VERSION"
           "$CLI" --help >/dev/null
           # Ad-hoc sign so the bundle has a stable (self-)signature; downloaders
           # still strip quarantine per the README. This is NOT notarization.
@@ -67,11 +69,3 @@ jobs:
           name: Capsule.app-${{ github.sha }}
           path: ${{ steps.pkg.outputs.zip }}
           if-no-files-found: error
-
-      # On a tag push, also attach the zip to the drafted GitHub release.
-      - name: Attach to release (tags only)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: Capsule.app.zip
