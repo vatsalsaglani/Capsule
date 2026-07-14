@@ -48,6 +48,27 @@ public struct CLIProcessClient: ContainerRuntime {
         try await invokeJSON(["system", "status"], timeout: .seconds(10))
     }
 
+    public func defaultKernelReadiness() async throws -> DefaultKernelReadiness {
+        let status = try await systemStatus()
+        guard let appRoot = status.appRoot?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !appRoot.isEmpty else {
+            throw RuntimeError.decodingFailed(
+                command: "container system status --format json",
+                detail: "missing appRoot required to locate the default kernel"
+            )
+        }
+
+        let architecture = RuntimeArchitecture.current
+        let defaultKernel = URL(fileURLWithPath: appRoot, isDirectory: true)
+            .appendingPathComponent("kernels", isDirectory: true)
+            .appendingPathComponent("default.kernel-\(architecture.rawValue)")
+            .resolvingSymlinksInPath()
+        let state: DefaultKernelReadiness.State = FileManager.default.fileExists(atPath: defaultKernel.path)
+            ? .configured
+            : .notConfigured
+        return DefaultKernelReadiness(architecture: architecture, state: state)
+    }
+
     public func systemDiskUsage() async throws -> SystemDiskUsage {
         try await invokeJSON(["system", "df"])
     }

@@ -139,7 +139,9 @@ public final class RuntimeInstallerModel {
             downloadPhase = .ready(
                 localURL: release.htmlURL,
                 humanInstructions: "This release doesn't have a downloadable installer package attached. "
-                    + "Open the GitHub releases page and download it from there — Capsule never installs it for you."
+                    + "Open the GitHub releases page, download the signed .pkg, then double-click it in Finder and "
+                    + "complete Apple's Installer prompts. Return to Capsule and check again when installation finishes. "
+                    + "Capsule never runs the installer for you."
             )
             return
         }
@@ -149,8 +151,9 @@ public final class RuntimeInstallerModel {
             let localURL = try await download(asset.browserDownloadURL)
             downloadPhase = .ready(
                 localURL: localURL,
-                humanInstructions: "Downloaded \(asset.name). Open it and follow the installer's prompts to install or update "
-                    + "container — Capsule never runs the installer for you. Release notes: \(release.htmlURL.absoluteString)"
+                humanInstructions: "Downloaded \(asset.name), but the runtime has not been installed yet. Reveal the package "
+                    + "in Finder, double-click it, and complete Apple's Installer prompts. Then return to Capsule and check "
+                    + "again. Capsule never runs the installer for you. Release notes: \(release.htmlURL.absoluteString)"
             )
         } catch {
             downloadPhase = .failed(message: Self.describe(error))

@@ -41,6 +41,7 @@ public final class SystemStore {
     }
 
     public func startRuntime() async {
+        lastActionError = nil
         do {
             try await runtime.systemStart()
             await refresh()
@@ -50,6 +51,7 @@ public final class SystemStore {
     }
 
     public func stopRuntime() async {
+        lastActionError = nil
         do {
             try await runtime.systemStop()
             await refresh()

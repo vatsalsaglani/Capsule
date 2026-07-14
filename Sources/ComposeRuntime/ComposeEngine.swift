@@ -120,6 +120,13 @@ public actor ComposeProject {
             )
         }
 
+        let kernelReadiness = try await runtime.defaultKernelReadiness()
+        guard kernelReadiness.isConfigured else {
+            throw ComposeRuntimeError.defaultKernelNotConfigured(
+                architecture: kernelReadiness.architecture
+            )
+        }
+
         try await persistDesiredState(
             running: true,
             selectedServices: Set(prepared.request.services)

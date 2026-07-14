@@ -5,6 +5,7 @@ public enum DiagnosticCheckID: String, Codable, Sendable, CaseIterable, Identifi
     case binary
     case version
     case runtimeStatus
+    case defaultKernel
     case update
 
     public var id: String { rawValue }
@@ -14,6 +15,7 @@ public enum DiagnosticCheckID: String, Codable, Sendable, CaseIterable, Identifi
         case .binary: "Container CLI"
         case .version: "Runtime Version"
         case .runtimeStatus: "Runtime Service"
+        case .defaultKernel: "Default Kernel"
         case .update: "Runtime Update"
         }
     }
@@ -38,6 +40,7 @@ public enum DiagnosticCheckStatus: String, Codable, Sendable {
 public enum DiagnosticRemediationAction: Sendable, Equatable {
     case installRuntime(releasePage: URL)
     case startRuntime
+    case configureDefaultKernel(command: String)
     case updateRuntime(releasePage: URL)
     case retry
 }
@@ -223,7 +226,7 @@ public struct RuntimeDiagnostics: RuntimeDiagnosticsProviding, Sendable {
                     action: .installRuntime(releasePage: releases)
                 )
             ))
-            for id in [DiagnosticCheckID.version, .runtimeStatus, .update] {
+            for id in [DiagnosticCheckID.version, .runtimeStatus, .defaultKernel, .update] {
                 replace(.init(id: id, status: .skipped, summary: "Skipped because the container CLI is unavailable"))
             }
             continuation.yield(snapshot(completedAt: Date()))
@@ -243,6 +246,7 @@ public struct RuntimeDiagnostics: RuntimeDiagnosticsProviding, Sendable {
         } catch {
             replace(.init(id: .version, status: .failed, summary: "The container CLI could not be opened"))
             replace(.init(id: .runtimeStatus, status: .skipped, summary: "Skipped because the runtime client is unavailable"))
+            replace(.init(id: .defaultKernel, status: .skipped, summary: "Skipped because the runtime client is unavailable"))
             replace(.init(id: .update, status: .skipped, summary: "Skipped because the installed version is unavailable"))
             continuation.yield(snapshot(completedAt: Date()))
             continuation.finish()
@@ -280,9 +284,11 @@ public struct RuntimeDiagnostics: RuntimeDiagnosticsProviding, Sendable {
         guard !Task.isCancelled else { continuation.finish(); return }
 
         replace(.init(id: .runtimeStatus, status: .running, summary: "Checking the runtime service"))
+        var runtimeIsRunning = false
         do {
             let status = try await runtime.systemStatus()
             if status.isRunning {
+                runtimeIsRunning = true
                 replace(.init(
                     id: .runtimeStatus,
                     status: .passed,
@@ -313,6 +319,52 @@ public struct RuntimeDiagnostics: RuntimeDiagnosticsProviding, Sendable {
                     action: .startRuntime
                 )
             ))
+        }
+        guard !Task.isCancelled else { continuation.finish(); return }
+
+        if !runtimeIsRunning {
+            replace(.init(
+                id: .defaultKernel,
+                status: .skipped,
+                summary: "Skipped because the runtime service is unavailable"
+            ))
+        } else {
+            replace(.init(id: .defaultKernel, status: .running, summary: "Checking the default kernel"))
+            do {
+                let readiness = try await runtime.defaultKernelReadiness()
+                if readiness.isConfigured {
+                    replace(.init(
+                        id: .defaultKernel,
+                        status: .passed,
+                        summary: "Default \(readiness.architecture.rawValue) kernel is configured"
+                    ))
+                } else {
+                    let command = "container system kernel set --recommended --arch \(readiness.architecture.rawValue)"
+                    replace(.init(
+                        id: .defaultKernel,
+                        status: .failed,
+                        summary: "Default \(readiness.architecture.rawValue) kernel is not configured",
+                        detail: "Container creation is unavailable until Apple container has a default kernel for this architecture.",
+                        remediation: .init(
+                            label: "Copy Setup Command",
+                            instruction: "Run `\(command)`, then check again.",
+                            action: .configureDefaultKernel(command: command)
+                        )
+                    ))
+                }
+            } catch {
+                replace(.init(
+                    id: .defaultKernel,
+                    status: .warning,
+                    summary: "Default kernel readiness could not be checked",
+                    detail: "The runtime service is running, but Capsule could not verify its default kernel selection.",
+                    remediation: .init(
+                        label: "Retry",
+                        instruction: "Check the runtime installation and run diagnostics again.",
+                        action: .retry
+                    )
+                ))
+            }
         }
         guard !Task.isCancelled else { continuation.finish(); return }
 
@@ -371,7 +423,7 @@ public struct RuntimeDiagnostics: RuntimeDiagnosticsProviding, Sendable {
     ) -> DiagnosticOverallStatus {
         guard completed else { return .running }
         if checks.contains(where: {
-            ($0.id == .binary || $0.id == .version) && $0.status == .failed
+            ($0.id == .binary || $0.id == .version || $0.id == .defaultKernel) && $0.status == .failed
         }) {
             return .failed
         }
