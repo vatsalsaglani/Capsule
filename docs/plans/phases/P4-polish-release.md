@@ -10,8 +10,8 @@ and ask at each ⛔.
 | Depends on | everything else merged |
 | Owns | repo-wide (nothing else is in flight) |
 
-**Read first:** `AGENTS.md` (rules 9, 10 and the release section — **never tag
-or publish without being asked**); master plan §6 (the spec being audited
+**Read first:** `AGENTS.md` (rules 9, 10 and the release section — **never create
+a release branch or publish without being asked**); master plan §6 (the spec being audited
 against) and §5 M4; `docs/ROADMAP.md` Phase 4 checklist.
 
 ## Deliverables
@@ -40,9 +40,9 @@ against) and §5 M4; `docs/ROADMAP.md` Phase 4 checklist.
      integration is v0.2).
 6. ⛔ **License:** must be chosen by the user before the repo goes public
    (AGENTS release section). Present 2–3 options with implications, wait.
-7. **Release:** changelog from merged PRs, `v0.1.0` tag ⛔ only on explicit
-   user go-ahead; verify the draft release assets (CLI tar.gz + checksums +
-   dmg) before announcing.
+7. **Release:** changelog from merged PRs, then push `release/v0.1.0` ⛔ only
+   on explicit user go-ahead; verify the published assets (CLI tar.gz +
+   checksums + dmg) before announcing. The workflow owns its required tag.
 
 ## Verification
 

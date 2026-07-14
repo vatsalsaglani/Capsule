@@ -48,3 +48,7 @@ note and say so — don't delete history silently.
 - [2026-07-13 — Compose managed-hosts exec identity](2026-07-13-compose-hosts-exec-identity.md) — root-only maintenance without changing user exec/probe identity
 - [2026-07-13 — replaceable tasks need explicit lifetime ownership](2026-07-13-replaceable-stream-task-generation.md) — cancellation needs generation gating, and SwiftUI tasks tied to replaceable inputs need explicit view/task identity
 - [2026-07-13 — container registries do not standardize image logos](2026-07-13-container-image-logo-metadata.md) — use an optional provider and disk cache for public official-image logos; keep the local blue fallback
+- [2026-07-14 — frontend supervision needs durable checkpoints](2026-07-14-frontend-supervision-checkpointing.md) — persist intent, health, deadlines, and refresh hosts after supervised restarts
+- [2026-07-14 — local diagnostics lifecycle and privacy boundary](2026-07-14-local-diagnostics-lifecycle.md) — delayed AppKit termination, honest unclean markers, and structured local-only exports
+- [2026-07-14 — builder and machine runtime contracts](2026-07-14-builder-machine-runtime-contract.md) — structured empty states, semantic machine start via `run`, JSON shapes, progress redaction, and actor-reentrant lifecycle serialization
+- [2026-07-14 — branch-driven releases and GitHub Pages](2026-07-14-branch-release-pages.md) — exact-SHA CI gating, workflow-owned tags, prerelease-safe bundle versions, and released-source docs deployment

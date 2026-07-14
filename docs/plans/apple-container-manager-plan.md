@@ -287,7 +287,7 @@ Healthchecks, `service_healthy` gating, restart policies, config-hash recreate, 
 Design pass to §6 spec, reduced-motion audit, crash/error reporting, docs site, honest compose-compatibility table, Homebrew tap for CLI, notarized dmg.
 
 ### Later (v0.2+)
-LaunchAgent supervisor, XPCClient runtime, profiles/multi-file/extends, `develop.watch` file-sync rebuild, Keychain secrets, `container machine` first-class UX, Sparkle updates, plugin/extension story.
+LaunchAgent supervisor, XPCClient runtime, profiles/multi-file/extends, `develop.watch` file-sync rebuild, Keychain secrets, advanced `container machine` configuration and interactive-exec UX beyond the thin-v1 management surface, Sparkle updates, plugin/extension story.
 
 **Risks (top 3):** (1) bare-hostname DNS doesn't work container-to-container → fallbacks A/B add complexity; (2) JSON output gaps force fragile table parsing → pin CLI version, contribute `--format json` PRs upstream; (3) per-VM memory not returned to host under many containers → surface memory in UI prominently, add "restart heavy containers" affordance.
 

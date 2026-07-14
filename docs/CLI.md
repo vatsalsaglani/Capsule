@@ -20,8 +20,9 @@ capsule help <subcommand>
 capsule <subcommand> --help
 ```
 
-The current development executable reports `0.1.0-dev`. Every command group
-and leaf command also accepts `--version` and `-h, --help`.
+The executable reports the full version stamped from its `release/v<version>`
+branch, including any prerelease suffix. Every command group and leaf command
+also accepts `--version` and `-h, --help`.
 
 | Command | Purpose |
 |---|---|
@@ -139,9 +140,11 @@ capsule compose up [shared options] [--quiet] [-d|--detach] [--build]
 ```
 
 `--build`, `--force-recreate`, and `--no-deps` have the same meanings as for
-`plan`. `--detach` returns after the operation and prints
-`supervision requires the Capsule agent`; it does not start a CLI background
-daemon.
+`plan`. Without `--detach`, the CLI remains attached after startup: it follows
+project logs and owns continuous health/restart supervision until interrupted.
+`--detach` returns after the operation and prints `supervision requires the
+Capsule agent`; it does not start a CLI background daemon. Opening Capsule.app
+resumes supervision from persisted state.
 
 ```sh
 capsule compose up --build
@@ -168,13 +171,29 @@ capsule compose down --volumes --remove-orphans
 
 ## `capsule compose ps`
 
-Print a project table with `SERVICE`, `INDEX`, `STATE`, and `CONTAINER`
-columns. Capsule also prints a warning when stored and observed project state
-have drifted.
+Print a project table with `SERVICE`, `INDEX`, `STATE`, `HEALTH`, and
+`CONTAINER` columns. Persisted health remains visible across frontend
+relaunches; the app marks it stale until the first live probe completes.
+Capsule also prints exact findings when stored and observed project state have
+drifted.
 
 ```text
 capsule compose ps [shared options]
 ```
+
+## `capsule compose reconcile`
+
+Compare persisted desired state with Capsule-labeled runtime resources.
+
+```text
+capsule compose reconcile [shared options] [--heal]
+```
+
+The default is report-only and performs no runtime mutations. `--heal`
+recreates missing or configuration-changed services and restores the desired
+running/stopped state. Orphans are always reported but never automatically
+deleted; removal remains the explicit
+`compose down --remove-orphans` path.
 
 ## `capsule compose logs`
 
@@ -247,6 +266,23 @@ capsule compose exec redis redis-cli PING
 
 ## Supported Compose input
 
+This compatibility table mirrors the key sets enforced by
+`Sources/ComposeSpec/SupportReport.swift`. “Accepted” means Capsule parses and
+acts on the value; it does not imply support for every Docker Compose value
+variant.
+
+| Scope | Accepted and acted on | Accepted with an explicit limitation | Deferred / ignored with warning |
+|---|---|---|---|
+| Top level | `name`, `services`, `volumes`, `networks` | `version` (obsolete, ignored) | Every unknown top-level key |
+| Service | `image`, `build`, `command`, `entrypoint`, `environment`, `env_file`, `working_dir`, `user`, `volumes`, `ports`, `depends_on`, `healthcheck`, `restart`, `labels`, `networks`, `platform`, `init`, `read_only`, `shm_size`, `tmpfs`, `stop_grace_period` | `restart: on-failure` is parsed and persisted, but paused because runtime 1.1 has no exit status | `profiles`, `extends`, `secrets`, `configs`, `deploy`, `develop`, `pull_policy`, `cpus`, `mem_limit`; every other unknown key |
+| `build` | `context`, `dockerfile`, `args`, `target` | — | Unknown nested keys |
+| `healthcheck` | `test`, `interval`, `timeout`, `retries`, `start_period`, `disable` | `CMD-SHELL` executes through `sh -c` | Unknown nested keys |
+| `depends_on.<service>` | `condition` | `service_completed_successfully` has basic ordering only | Unknown nested keys |
+| Long port | `target`, `published`, `protocol`, `host_ip` | TCP/UDP only; no ranges or IPv6 host literals | Unknown nested keys |
+| Long service volume | `type`, `source`, `target`, `read_only` | Bind, named volume, and tmpfs only | Unknown nested keys |
+| Named volume | `external`, `name` | — | Unknown nested keys |
+| Named network | `external`, `name`, `internal` | Service attachments are name-only | Per-attachment options and unknown nested keys |
+
 Capsule recognizes these top-level keys:
 
 - `name`, `services`, `volumes`, and `networks`
@@ -282,17 +318,78 @@ reported as deferred and ignored.
 
 ### Current Compose limitations
 
-- Automatic restart supervision is not active in the current frontend.
-  `restart:` is recorded but produces a warning and is not enforced; this
-  includes `always`, `unless-stopped`, and `on-failure` policies.
-- `up --detach` does not install or start a resident supervisor.
-- Health checks are used while satisfying declared `depends_on` conditions;
-  continuous post-start health supervision is not resident yet.
+- `restart: always` and `restart: unless-stopped` are enforced while the
+  foreground `capsule compose up` process or Capsule.app is resident. State,
+  backoff deadlines, restart attempts, user stops, and health observations are
+  persisted so the app resumes cleanly after relaunch.
+- Apple `container` 1.1 exposes only a generic stopped state, not the process
+  exit status. Capsule therefore pauses `restart: on-failure` and reports the
+  limitation instead of guessing whether the exit was a failure.
+- `up --detach` does not install a background daemon. Supervision resumes when
+  Capsule.app is running; the LaunchAgent/XPC supervisor remains a later
+  milestone.
+- Continuous health supervision is frontend-resident. A detached project has
+  no live probes until Capsule.app attaches, though the last observation stays
+  persisted and visibly stale.
 - Apple `container` 1.1 does not publish container-name DNS records. Capsule
   injects and refreshes a managed `/etc/hosts` block for service discovery.
 - `compose exec` is non-interactive and targets an existing service container.
 - Compose features outside the subset above are ignored with warnings or
   rejected when continuing would be unsafe.
+
+## Builds
+
+Build an image directly from a local Dockerfile:
+
+```text
+capsule build <context> --tag <image:tag> [--tag <additional:tag> ...]
+              [--file <dockerfile>] [--build-arg <KEY=VALUE> ...]
+              [--target <stage>] [--platform <os/architecture>]
+              [--no-cache] [--pull]
+```
+
+When `--file` is omitted, Capsule detects `Dockerfile` or `dockerfile` in the
+context directory. At least one tag is required; additional tags are applied
+after the primary build succeeds. Output is streamed with the runtime's plain
+progress format and cancellation stops the underlying build. Capsule stores a
+bounded local history shared with the app. Build-argument keys are recorded,
+but values are redacted from live and saved Capsule output.
+
+Manage the persistent builder separately:
+
+```text
+capsule builder status
+capsule builder start [--cpus <count>] [--memory-bytes <bytes>]
+capsule builder stop
+capsule builder reset [--cpus <count>] [--memory-bytes <bytes>]
+```
+
+`stop` keeps the builder container for reuse. `reset` deletes and recreates it
+and is rejected while a build is active.
+
+## Machines
+
+The thin v1 machine surface covers persistent machine lifecycle and logs:
+
+```text
+capsule machines list
+capsule machines ls
+capsule machines inspect <id>
+capsule machines create <image> [--name <id>] [--platform <platform>]
+                        [--cpus <count>] [--memory-bytes <bytes>]
+                        [--home-mount <rw|ro|none>] [--no-boot]
+                        [--set-default] [--nested-virtualization]
+capsule machines start <id>
+capsule machines stop <id>
+capsule machines logs <id> [--boot] [--follow] [-n <lines>]
+capsule machines delete <id> --force
+capsule machines rm <id> --force
+```
+
+Apple `container` 1.1 has no `machine start` subcommand. Capsule's semantic
+`start` uses a non-interactive `machine run` operation, which boots the named
+machine when necessary. Delete requires Capsule's `--force` confirmation
+because the machine's virtual disk is removed permanently.
 
 ## Volumes
 
@@ -406,11 +503,13 @@ Diagnose whether the Apple runtime dependency is usable.
 capsule doctor [--offline]
 ```
 
-The command checks the `container` binary location, CLI version, runtime
-apiserver state, and the latest GitHub release. `--offline` skips only the
-GitHub check. A missing binary, unreadable version, or version older than 1.x
-exits with status 1. A stopped or unqueryable apiserver is reported as a
-warning with startup guidance. Update-check network failure is also a warning.
+The command checks the `container` binary location, exact 1.x compatibility,
+runtime apiserver state, and the latest GitHub release through the same
+CapsuleKit diagnostic state machine used by onboarding and System.
+`--offline` skips only the GitHub check. A missing binary, unreadable version,
+or any non-1.x major exits with status 1. A stopped or unqueryable apiserver is
+reported as a warning with startup guidance. Update-check network failure is
+also a warning.
 
 ## `capsule runtime status`
 

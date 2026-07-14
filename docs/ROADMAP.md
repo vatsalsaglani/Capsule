@@ -16,9 +16,12 @@ merge order defined in that folder's README. Package map: Phase 0 →
 Phase 3 → [P3](plans/phases/P3-supervision.md) · Phase 4 →
 [P4](plans/phases/P4-polish-release.md).
 
-Releases happen on GitHub: alpha `v0.0.x` tags out of Phase 1, the public
-`v0.1.0` at the end of Phase 4. CLI binaries attach to releases via
-`.github/workflows/release.yml`; the notarized app dmg joins in Phase 4.
+Releases happen on GitHub: pushing `release/v<semver>` from an exact commit
+that passed `main` CI publishes the corresponding version (a suffix makes it a
+pre-release). The workflow stamps source and bundle metadata, creates GitHub's
+required tag internally, attaches the CLI tarball, ad-hoc-signed app ZIP, DMG,
+and checksums, then deploys the MkDocs site. Developer ID signing and
+notarization remain Phase 4 distribution gates.
 
 ## Phase 0 — Spikes (1 week) — *de-risk before building*
 
@@ -50,8 +53,9 @@ survives runtime restarts and CLI absence gracefully.
 - [x] In-app CLI PATH setup: build the production `Sources/CapsuleCLI` frontend into `Capsule.app/Contents/Helpers/capsule`; System and runtime-missing onboarding surfaces safely inspect/install `/usr/local/bin/capsule`, preserve conflicts, confirm stale-link updates, and fall back to a copyable permission command without editing shell profiles or invoking sudo
 - [x] Menu-bar extra: runtime up/down, running count, stop-all *(P1B B6/B7 — engine/store/compile-level complete, fed by the shared `RuntimeSession`/`MenuBarStore`; interactive click-through (Stop All, Open Capsule) is still an open human gate)*
 - [ ] Feel prototype (plan §6.6): sidebar/list/inspector + one live-updating row + terminal, reviewed frame-by-frame — *sets the craft bar before UI build-out* *(P1B B2/B7 — the `#if DEBUG` `ScriptedDemoSession`/`FeelPrototypeDemoView` window compiles and drives the real Containers screen through genuine poll-driven state transitions; terminal now exists (P1C) but isn't wired into this prototype window yet; the frame-by-frame human review this line is named for hasn't happened — left unticked until that gate runs)*
-- [ ] Interactive onboarding/doctor screen in-app
-- [ ] Tag `v0.0.1` alpha (dmg, unsigned OK for alpha; CLI tar.gz)
+- [x] Interactive onboarding/doctor screen in-app *(one progressive CapsuleKit snapshot stream now powers CLI doctor, onboarding, and System; typed remediation, exact 1.x gate, runtime re-check, local incident history/export, and post-install RuntimeSession replacement compile and test cleanly)*
+- [x] Reproducible `v0.0.1` alpha artifacts ready *(one script/workflow builds and verifies the ad-hoc-signed app zip, unsigned/not-notarized dmg, CLI tar.gz, embedded CLI, and SHA-256 checksums)*
+- [ ] Publish the first branch-driven `v0.0.1` alpha *(the workflow is ready; intentionally not triggered without an explicit release instruction)*
 
 ## Phase 2 — Compose core (3–4 weeks) → the launch demo
 
@@ -77,33 +81,34 @@ plain down/up, and removed containers/network/volume to zero with
 
 ## Phase 3 — Supervision & fidelity (2–3 weeks)
 
-- [ ] Healthchecks: exec-based probes, `starting → healthy/unhealthy` state machine, `service_healthy` gating *(probe runner, correct `start_period` semantics, failure output, and live gating are complete; persisting/surfacing live health across frontend relaunch remains)*
-- [ ] Restart policies wired to exit events with docker-compatible backoff *(watcher + budget/backoff logic are implemented and tested; frontend residency/event wiring and user-stop integration remain; `container` 1.1.0 does not expose exit status, so exact `on-failure` remains honestly unavailable)*
-- [ ] Supervisor lives in whichever frontend ran `up` (v1); print the "supervision requires the Capsule agent" notice on CLI `-d` *(notice is complete; resident frontend supervision and app relaunch resumption remain)*
-- [ ] Drift reconcile on attach: observed (by labels) vs desired (ProjectStore) → report → optional auto-heal *(typed desired-vs-observed report is persisted and surfaced by `compose ps`; attach-time optional auto-heal remains)*
-- [ ] `.env` precedence edge cases; volumes/networks/builds/machines screens *(`.env` precedence plus Volumes/Networks are complete; Builds/Machines screens remain)*
+- [x] Healthchecks: exec-based probes, `starting → healthy/unhealthy` state machine, `service_healthy` gating *(continuous observations persist attempt/output/time/container identity; relaunch shows stale state until an immediate live probe and never grants a second start period)*
+- [x] Restart policies wired to exit events with Docker-compatible capped backoff *(absolute deadlines/attempts persist, restart storms are rate-limited, user stops win, and managed hosts refresh after a supervised restart; `container` 1.1.0 exposes no exit status, so exact `on-failure` is explicitly paused rather than guessed)*
+- [x] Supervisor lives in whichever frontend ran `up` (v1); print the "supervision requires the Capsule agent" notice on CLI `-d` *(foreground CLI owns logs+supervision; one app-lifetime RuntimeSession task resumes every persisted project from the first authoritative poller snapshot)*
+- [x] Drift reconcile on attach: observed (by labels) vs desired (ProjectStore) → report → optional auto-heal *(report-only is mutation-free; `--heal`/UI reconcile repair missing, changed, and unexpected-state services; orphans remain explicit-only deletion)*
+- [x] `.env` precedence edge cases; volumes/networks/builds/machines screens *(all complete: direct Dockerfile builds with streamed/cancellable output, redacted durable history, builder lifecycle, plus thin-v1 machine create/list/inspect/start/stop/logs/delete in CapsuleKit, CLI, and app)*
 - [x] Volume and Network lifecycle in CapsuleKit, CLI, and app: list/inspect, reverse references/attachments, create, protected delete, prune, ownership, confirmations, and built-in-network protection
-- [ ] Dependency-graph visualization (SwiftUI Canvas)
+- [x] Dependency-graph visualization (SwiftUI Canvas) *(deterministic start layers and dependency conditions come from CapsuleKit; native selectable/accessible nodes sit over the Canvas relationship layer)*
 
 ## Phase 4 — Polish & public v0.1 (2 weeks) → `v0.1.0`
 
 - [ ] Design pass to plan §6 spec (motion, typography, color tokens, translucency rules) *(Compose, Containers, Images, Volumes, and Networks now share Graphite & Indigo tokens, adaptive card/list modes, hover-local actions, selected states, exact destructive previews, and solid log surfaces; System/onboarding/menu-bar and the human frame-by-frame gate remain)*
 - [ ] Reduced-motion / reduced-transparency / increase-contrast audit; VoiceOver labels *(new collection surfaces use real labeled buttons, non-color state text, and reduce-motion-gated springs; full-app VoiceOver/contrast click-through remains a human gate)*
-- [ ] Crash/error reporting; honest compose-compatibility table in docs
-- [ ] Docs site, README screenshots, demo recording (`compose plan` is the demo)
+- [x] Crash/error reporting; honest compose-compatibility table in docs *(privacy choice: bounded structured local-only incidents, honest unclean-termination marker, explicit JSON export, no telemetry/uploader; CLI reference includes the enforced key/limitation table)*
+- [x] MkDocs documentation site with Capsule branding, release guide, strict CI build, and post-release GitHub Pages deployment
+- [ ] README screenshots and demo recording (`compose plan` is the demo)
 - [ ] Homebrew tap for the CLI; notarized dmg; Sparkle appcast groundwork
-- [ ] Pick a license before the repo goes public
-- [ ] Tag `v0.1.0`
+- [x] Pick a license before the repo goes public *(Apache-2.0, matching apple/container)*
+- [ ] Publish `v0.1.0` from `release/v0.1.0`
 
 ## Later (v0.2+)
 
 LaunchAgent supervisor (`capsuled`, SMAppService) with app/CLI as XPC clients ·
 XPCClient runtime against apple/container Swift packages · profiles/multi-file/
-`extends` · `develop.watch` file-sync rebuild · Keychain secrets · `container
-machine` first-class UX · Sparkle auto-updates · plugin story.
+`extends` · `develop.watch` file-sync rebuild · Keychain secrets · advanced
+`container machine` configuration/interactive-exec UX · Sparkle auto-updates · plugin story.
 
 ## Top risks (watch actively)
 
 1. **S1 fails (confirmed 2026-07-13)** — bare-hostname DNS doesn't work container-to-container on either network type → hosts-injection fallback (verified non-sudo) is the shipping mechanism for Phase 2; adds a per-restart reconciliation step to the supervisor. See [S1 spike](spikes/S1-dns-service-discovery.md).
-2. **JSON gaps (resolved 2026-07-13, S2)** — no table-only commands found across `list`/`inspect`/`stats`/`system df`/`system status`/`volume`/`network`/`image` on 1.1.0; `inspect` family emits JSON unconditionally (no `--format` needed or accepted). No table-parser fallback required for anything probed so far — still pin the CLI version and re-check if a future surface (e.g. `container builder status`, S5) proves table-only. See [S2 spike](spikes/S2-json-coverage.md).
+2. **JSON gaps (resolved 2026-07-14, S2 + Builds/Machines)** — no table-only commands found across `list`/`inspect`/`stats`/`system df`/`system status`/`volume`/`network`/`image`/`builder status`/`machine list` on 1.1.0; `inspect` family emits JSON unconditionally (no `--format` needed or accepted). No table-parser fallback is required for anything probed so far; pin the CLI version and re-check new surfaces on upgrade. See [S2 spike](spikes/S2-json-coverage.md) and [builder/machine learning](learnings/2026-07-14-builder-machine-runtime-contract.md).
 3. **Per-VM memory pressure** — many containers hold host memory → aggregate and per-container memory are now surfaced prominently while collection screens are visible; the dedicated "restart heavy containers" affordance remains.
