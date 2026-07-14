@@ -18,7 +18,10 @@ import Foundation
 /// key per call so concurrent unnamed creates never contend — there is no
 /// shared identity to serialize on until the runtime assigns one),
 /// `deleteImage`/`tagImage` (keyed by the source reference), `createVolume`/
-/// `deleteVolume`, `createNetwork`/`deleteNetwork`.
+/// `deleteVolume`/`pruneVolumes`, and `createNetwork`/`deleteNetwork`/
+/// `pruneNetworks`. Volume and network mutations use one lane per resource
+/// domain because prune spans every resource in that domain; this prevents a
+/// create/delete from racing the prune's before/after inventory snapshots.
 ///
 /// **What's pass-through (concurrent):** every list, `inspectContainer`,
 /// `systemStatus`, `systemDiskUsage`, `systemStart`, `systemStop`,
@@ -56,6 +59,10 @@ public actor RuntimeGateway: ContainerRuntime {
         case image(String)
         case volume(String)
         case network(String)
+        case machine(String)
+        case builderDomain
+        case volumeDomain
+        case networkDomain
     }
 
     private let base: any ContainerRuntime
@@ -133,6 +140,15 @@ public actor RuntimeGateway: ContainerRuntime {
         try await base.exec(id: id, argv: argv, timeout: timeout)
     }
 
+    public func exec(
+        id: String,
+        argv: [String],
+        options: ExecOptions,
+        timeout: Duration
+    ) async throws -> ExecResult {
+        try await base.exec(id: id, argv: argv, options: options, timeout: timeout)
+    }
+
     public func stats(ids: [String]) async throws -> AsyncThrowingStream<[StatsSample], Error> {
         try await base.stats(ids: ids)
     }
@@ -157,20 +173,48 @@ public actor RuntimeGateway: ContainerRuntime {
         try await serialized(key: .image(source)) { try await base.tagImage(source: source, target: target) }
     }
 
+    public func buildImage(_ spec: ImageBuildSpec) async throws -> AsyncThrowingStream<BuildProgress, Error> {
+        try await base.buildImage(spec)
+    }
+
+    public func builderStatus() async throws -> BuilderStatus {
+        try await base.builderStatus()
+    }
+
+    public func startBuilder(_ configuration: BuilderConfiguration) async throws {
+        let base = self.base
+        try await serialized(key: .builderDomain) { try await base.startBuilder(configuration) }
+    }
+
+    public func stopBuilder() async throws {
+        let base = self.base
+        try await serialized(key: .builderDomain) { try await base.stopBuilder() }
+    }
+
+    public func deleteBuilder(force: Bool) async throws {
+        let base = self.base
+        try await serialized(key: .builderDomain) { try await base.deleteBuilder(force: force) }
+    }
+
     // MARK: - Volumes
 
     public func listVolumes() async throws -> [VolumeSummary] {
         try await base.listVolumes()
     }
 
-    public func createVolume(name: String, labels: [String: String]) async throws {
+    public func createVolume(_ spec: VolumeCreateSpec) async throws {
         let base = self.base
-        try await serialized(key: .volume(name)) { try await base.createVolume(name: name, labels: labels) }
+        try await serialized(key: .volumeDomain) { try await base.createVolume(spec) }
     }
 
     public func deleteVolume(name: String) async throws {
         let base = self.base
-        try await serialized(key: .volume(name)) { try await base.deleteVolume(name: name) }
+        try await serialized(key: .volumeDomain) { try await base.deleteVolume(name: name) }
+    }
+
+    public func pruneVolumes() async throws -> PruneReport {
+        let base = self.base
+        return try await serialized(key: .volumeDomain) { try await base.pruneVolumes() }
     }
 
     // MARK: - Networks
@@ -179,16 +223,61 @@ public actor RuntimeGateway: ContainerRuntime {
         try await base.listNetworks()
     }
 
-    public func createNetwork(name: String, labels: [String: String], isInternal: Bool) async throws {
+    public func createNetwork(_ spec: NetworkCreateSpec) async throws {
         let base = self.base
-        try await serialized(key: .network(name)) {
-            try await base.createNetwork(name: name, labels: labels, isInternal: isInternal)
+        try await serialized(key: .networkDomain) {
+            try await base.createNetwork(spec)
         }
     }
 
     public func deleteNetwork(name: String) async throws {
         let base = self.base
-        try await serialized(key: .network(name)) { try await base.deleteNetwork(name: name) }
+        try await serialized(key: .networkDomain) { try await base.deleteNetwork(name: name) }
+    }
+
+    public func pruneNetworks() async throws -> PruneReport {
+        let base = self.base
+        return try await serialized(key: .networkDomain) { try await base.pruneNetworks() }
+    }
+
+    // MARK: - Machines
+
+    public func listMachines() async throws -> [MachineSummary] {
+        try await base.listMachines()
+    }
+
+    public func inspectMachine(id: String) async throws -> MachineDetail {
+        try await base.inspectMachine(id: id)
+    }
+
+    public func createMachine(_ spec: MachineCreateSpec) async throws -> String {
+        let key = ResourceKey.machine(spec.name ?? "create:\(UUID().uuidString)")
+        let base = self.base
+        return try await serialized(key: key) { try await base.createMachine(spec) }
+    }
+
+    public func startMachine(id: String) async throws {
+        let base = self.base
+        try await serialized(key: .machine(id)) { try await base.startMachine(id: id) }
+    }
+
+    public func stopMachine(id: String) async throws {
+        let base = self.base
+        try await serialized(key: .machine(id)) { try await base.stopMachine(id: id) }
+    }
+
+    public func deleteMachine(id: String) async throws {
+        let base = self.base
+        try await serialized(key: .machine(id)) { try await base.deleteMachine(id: id) }
+    }
+
+    public func machineLogs(
+        id: String,
+        source: MachineLogSource,
+        follow: Bool,
+        tail: Int?
+    ) async throws -> AsyncThrowingStream<LogLine, Error> {
+        try await base.machineLogs(id: id, source: source, follow: follow, tail: tail)
     }
 
     // MARK: - Serialization mechanism

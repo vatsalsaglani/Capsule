@@ -2,7 +2,7 @@ import Foundation
 
 /// Typed model of the supported compose subset (plan §4.2). Anything outside
 /// this surface is reported by `SupportScanner`, never silently dropped.
-public struct ComposeFile: Decodable, Sendable {
+public struct ComposeFile: Codable, Sendable, Hashable {
     public var name: String?
     public var services: [String: ComposeService]
     public var volumes: [String: TopLevelVolume?]?
@@ -18,7 +18,7 @@ public struct ComposeFile: Decodable, Sendable {
     }
 }
 
-public struct ComposeService: Decodable, Sendable {
+public struct ComposeService: Codable, Sendable, Hashable {
     public var image: String?
     public var build: BuildConfig?
     public var command: StringOrList?
@@ -33,7 +33,7 @@ public struct ComposeService: Decodable, Sendable {
     public var healthcheck: Healthcheck?
     public var restart: RestartMode?
     public var labels: EnvironmentMap?
-    public var networks: StringOrList?
+    public var networks: NetworkAttachments?
     public var platform: String?
     public var initProcess: Bool?
     public var readOnly: Bool?
@@ -56,7 +56,41 @@ public struct ComposeService: Decodable, Sendable {
     }
 }
 
-public struct BuildConfig: Decodable, Sendable, Equatable {
+/// Service network attachment names. Compose accepts list syntax and map
+/// syntax with empty attachment bodies; per-attachment options are not in the
+/// supported subset and are surfaced by `SupportScanner`.
+public struct NetworkAttachments: Codable, Sendable, Hashable {
+    public let values: [String]
+
+    public init(values: [String]) {
+        self.values = values
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let value = try? container.decode(String.self) {
+            values = [value]
+        } else if let list = try? container.decode([String].self) {
+            values = list
+        } else if let map = try? container.decode([String: EmptyAttachment?].self) {
+            values = map.keys.sorted()
+        } else {
+            throw DecodingError.typeMismatch(
+                NetworkAttachments.self,
+                .init(codingPath: decoder.codingPath, debugDescription: "expected network name list or map")
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(values)
+    }
+
+    private struct EmptyAttachment: Codable {}
+}
+
+public struct BuildConfig: Codable, Sendable, Hashable {
     public var context: String
     public var dockerfile: String?
     public var args: EnvironmentMap?
@@ -88,14 +122,14 @@ public struct BuildConfig: Decodable, Sendable, Equatable {
     }
 }
 
-public struct DependsOn: Decodable, Sendable, Equatable {
-    public enum Condition: String, Decodable, Sendable {
+public struct DependsOn: Codable, Sendable, Hashable {
+    public enum Condition: String, Codable, Sendable, Hashable {
         case serviceStarted = "service_started"
         case serviceHealthy = "service_healthy"
         case serviceCompletedSuccessfully = "service_completed_successfully"
     }
 
-    public struct Requirement: Decodable, Sendable, Equatable {
+    public struct Requirement: Codable, Sendable, Hashable {
         public var condition: Condition
 
         public init(condition: Condition = .serviceStarted) {
@@ -132,9 +166,14 @@ public struct DependsOn: Decodable, Sendable, Equatable {
             )
         }
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(requirements)
+    }
 }
 
-public struct Healthcheck: Decodable, Sendable, Equatable {
+public struct Healthcheck: Codable, Sendable, Hashable {
     public var test: StringOrList?
     public var interval: String?
     public var timeout: String?
@@ -149,7 +188,7 @@ public struct Healthcheck: Decodable, Sendable, Equatable {
     }
 }
 
-public enum RestartMode: Decodable, Sendable, Equatable {
+public enum RestartMode: Codable, Sendable, Hashable {
     case no
     case always
     case unlessStopped
@@ -180,9 +219,21 @@ public enum RestartMode: Decodable, Sendable, Equatable {
             }
         }
     }
+
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .no: try container.encode("no")
+        case .always: try container.encode("always")
+        case .unlessStopped: try container.encode("unless-stopped")
+        case .onFailure(let maxRetries):
+            try container.encode(maxRetries.map { "on-failure:\($0)" } ?? "on-failure")
+        }
+    }
 }
 
-public struct TopLevelVolume: Decodable, Sendable, Equatable {
+public struct TopLevelVolume: Codable, Sendable, Hashable {
     public var external: Bool?
     public var name: String?
 
@@ -192,7 +243,7 @@ public struct TopLevelVolume: Decodable, Sendable, Equatable {
     }
 }
 
-public struct TopLevelNetwork: Decodable, Sendable, Equatable {
+public struct TopLevelNetwork: Codable, Sendable, Hashable {
     public var external: Bool?
     public var name: String?
     public var isInternal: Bool?

@@ -8,6 +8,10 @@ import Foundation
 enum StreamedFileDescriptor: Sendable {
     case stdout
     case stderr
+    /// Route both descriptors into one pipe. This is the safe choice for a
+    /// command such as `build` that can be chatty on either descriptor: no
+    /// unread pipe can fill and deadlock the child.
+    case combined
 }
 
 /// Turns a long-lived subprocess's line-oriented output into an
@@ -45,10 +49,9 @@ enum StreamedFileDescriptor: Sendable {
 /// to stdout, `image pull --progress plain` writes only to stderr, so the
 /// unread "other" fd only ever carries incidental noise, verified empty in
 /// both live probes. This becomes a real risk if a later phase reuses this
-/// type for something chattier on *both* fds at once (`container build
-/// --progress plain`'s own stdout/stderr split is unverified as of P1A) —
-/// revisit with concurrent draining (e.g. a second reader task) before that
-/// reuse ships.
+/// type for something chattier on *both* fds. Such callers must choose
+/// `.combined`, which routes both descriptors into the streamed pipe and
+/// retains a bounded failure tail.
 enum SubprocessLineStream {
     static func run<Element: Sendable>(
         executablePath: String,
@@ -70,11 +73,25 @@ enum SubprocessLineStream {
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-
-        let readHandle = (readFrom == .stdout ? stdoutPipe : stderrPipe).fileHandleForReading
-        let otherHandle = (readFrom == .stdout ? stderrPipe : stdoutPipe).fileHandleForReading
+        let readHandle: FileHandle
+        let otherHandle: FileHandle?
+        switch readFrom {
+        case .stdout:
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+            readHandle = stdoutPipe.fileHandleForReading
+            otherHandle = stderrPipe.fileHandleForReading
+        case .stderr:
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+            readHandle = stderrPipe.fileHandleForReading
+            otherHandle = stdoutPipe.fileHandleForReading
+        case .combined:
+            process.standardOutput = stdoutPipe
+            process.standardError = stdoutPipe
+            readHandle = stdoutPipe.fileHandleForReading
+            otherHandle = nil
+        }
 
         do {
             try process.run()
@@ -100,8 +117,15 @@ enum SubprocessLineStream {
         }
 
         Task {
+            var combinedTailLines: [String] = []
             do {
                 for try await line in readHandle.bytes.lines {
+                    if readFrom == .combined {
+                        combinedTailLines.append(String(line.suffix(4_096)))
+                        if combinedTailLines.count > 256 {
+                            combinedTailLines.removeFirst(combinedTailLines.count - 256)
+                        }
+                    }
                     continuation.yield(transform(line))
                 }
             } catch {
@@ -118,14 +142,16 @@ enum SubprocessLineStream {
             // but drained here in case the runtime ever writes anything
             // there on a failure path.
             var otherTail = ""
-            do {
-                for try await line in otherHandle.bytes.lines {
-                    otherTail += line + "\n"
+            if let otherHandle {
+                do {
+                    for try await line in otherHandle.bytes.lines {
+                        otherTail += line + "\n"
+                    }
+                } catch {
+                    // Best-effort tail capture only.
                 }
-            } catch {
-                // Best-effort tail capture only.
+                otherHandle.closeFile()
             }
-            otherHandle.closeFile()
 
             process.waitUntilExit()
             let exitCode = process.terminationStatus
@@ -135,7 +161,8 @@ enum SubprocessLineStream {
                 continuation.finish(throwing: RuntimeError.commandFailed(
                     command: commandDescription,
                     exitCode: exitCode,
-                    stderr: otherTail.trimmingCharacters(in: .whitespacesAndNewlines)
+                    stderr: (readFrom == .combined ? combinedTailLines.joined(separator: "\n") : otherTail)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
                 ))
             }
         }

@@ -27,7 +27,7 @@ public struct SemanticVersion: Sendable, Hashable, Codable, Comparable, CustomSt
     public var description: String { "\(major).\(minor).\(patch)" }
 }
 
-public enum ContainerRunState: String, Sendable, Equatable {
+public enum ContainerRunState: String, Sendable, Hashable, Codable {
     case running
     case stopped
     case unknown

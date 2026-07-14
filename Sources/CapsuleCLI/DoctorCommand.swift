@@ -1,5 +1,5 @@
 import ArgumentParser
-import ContainerClient
+import Diagnostics
 
 struct DoctorCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -11,62 +11,46 @@ struct DoctorCommand: AsyncParsableCommand {
     var offline = false
 
     func run() async throws {
-        guard let binaryPath = ContainerBinaryLocator.locate() else {
-            print("✗ container CLI not found")
-            print("  Looked at $\(ContainerBinaryLocator.environmentOverrideKey), \(ContainerBinaryLocator.defaultInstallPath), and $PATH.")
-            print("  Install the signed package from https://github.com/apple/container/releases")
+        let diagnostics = RuntimeDiagnostics()
+        var rendered: [DiagnosticCheckID: DiagnosticCheckSnapshot] = [:]
+        var final: DiagnosticsSnapshot?
+
+        for await snapshot in diagnostics.snapshots(for: offline ? .offline : .standard) {
+            final = snapshot
+            for check in snapshot.checks where check.status.isTerminal && rendered[check.id] != check {
+                rendered[check.id] = check
+                render(check)
+            }
+        }
+
+        guard let final else { throw ExitCode(1) }
+        switch final.overall {
+        case .ready:
+            print("\n✓ Capsule is ready to use the Apple container runtime")
+        case .needsAction:
+            print("\n⚠ Capsule can reach the runtime, but one or more checks need attention")
+        case .failed:
+            print("\n✗ Capsule cannot use the runtime until the failed checks are resolved")
+            throw ExitCode(1)
+        case .running:
             throw ExitCode(1)
         }
-        print("✓ container CLI at \(binaryPath)")
-
-        let client = try CLIProcessClient(binaryPath: binaryPath)
-        var failures = 0
-        var installedVersion: SemanticVersion?
-
-        do {
-            let version = try await client.cliVersion()
-            installedVersion = version
-            if version.major >= 1 {
-                print("✓ container version \(version) (Capsule is developed against 1.1.x)")
-            } else {
-                print("⚠ container version \(version) — Capsule requires 1.x")
-                failures += 1
-            }
-        } catch {
-            print("✗ could not read container version: \(error.localizedDescription)")
-            failures += 1
-        }
-
-        do {
-            let status = try await client.systemStatus()
-            if status.isRunning {
-                print("✓ runtime apiserver is running")
-            } else {
-                print("⚠ runtime is not running — start it with `container system start`")
-            }
-        } catch {
-            print("⚠ could not query runtime status — start it with `container system start`")
-            print("  (\(error.localizedDescription))")
-        }
-
-        if !offline {
-            await checkForUpdates(installedVersion: installedVersion)
-        }
-
-        if failures > 0 { throw ExitCode(1) }
     }
 
-    private func checkForUpdates(installedVersion: SemanticVersion?) async {
-        guard let installedVersion else { return }
-        do {
-            if let release = try await RuntimeUpdateChecker().updateAvailable(installed: installedVersion) {
-                print("⚠ runtime update available: \(installedVersion) → \(release.version.map(String.init(describing:)) ?? release.tagName)")
-                print("  \(release.htmlURL)")
-            } else {
-                print("✓ runtime is up to date with the latest GitHub release")
-            }
-        } catch {
-            print("⚠ could not reach GitHub for the update check (pass --offline to skip)")
+    private func render(_ check: DiagnosticCheckSnapshot) {
+        let icon = switch check.status {
+        case .passed: "✓"
+        case .warning: "⚠"
+        case .failed: "✗"
+        case .skipped: "–"
+        case .pending, .running: "→"
+        }
+        print("\(icon) \(check.id.title): \(check.summary)")
+        if let detail = check.detail, !detail.isEmpty {
+            print("  \(detail)")
+        }
+        if let remediation = check.remediation {
+            print("  \(remediation.instruction)")
         }
     }
 }

@@ -17,6 +17,14 @@ public enum DependencyGraph {
     /// depends on). Deterministic: alphabetical tie-break. Cycles are fatal
     /// with the cycle printed (plan §4.5).
     public static func startOrder(_ dependencies: [String: Set<String>]) throws -> [String] {
+        try startLayers(dependencies).flatMap { $0 }
+    }
+
+    /// Deterministic dependency layers, dependencies first. This is the
+    /// shared structural result used both by execution planning and the
+    /// Compose dependency-graph presentation; frontends never re-derive DAG
+    /// semantics from YAML.
+    public static func startLayers(_ dependencies: [String: Set<String>]) throws -> [[String]] {
         for (service, deps) in dependencies.sorted(by: { $0.key < $1.key }) {
             for dep in deps.sorted() where dependencies[dep] == nil {
                 throw DependencyGraphError.unknownService(name: dep, dependedOnBy: service)
@@ -24,7 +32,7 @@ public enum DependencyGraph {
         }
 
         var remaining = dependencies
-        var order: [String] = []
+        var layers: [[String]] = []
         while !remaining.isEmpty {
             let ready = remaining
                 .filter { $0.value.allSatisfy { !remaining.keys.contains($0) } }
@@ -32,12 +40,12 @@ public enum DependencyGraph {
             guard !ready.isEmpty else {
                 throw DependencyGraphError.dependencyCycle(path: findCycle(in: remaining))
             }
+            layers.append(ready)
             for service in ready {
-                order.append(service)
                 remaining.removeValue(forKey: service)
             }
         }
-        return order
+        return layers
     }
 
     private static func findCycle(in dependencies: [String: Set<String>]) -> [String] {

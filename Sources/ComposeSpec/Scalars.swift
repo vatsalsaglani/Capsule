@@ -2,7 +2,7 @@ import Foundation
 
 /// YAML scalar that may arrive typed (string, bool, int, double) but that we
 /// always treat as a string — e.g. `POSTGRES_PORT: 5432`.
-public struct FlexibleString: Decodable, Sendable, Equatable {
+public struct FlexibleString: Codable, Sendable, Hashable {
     public let value: String
 
     public init(_ value: String) { self.value = value }
@@ -24,11 +24,16 @@ public struct FlexibleString: Decodable, Sendable, Equatable {
             )
         }
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
 }
 
 /// Compose fields that accept either a single string or a list of strings
 /// (`command`, `entrypoint`, `env_file`, `tmpfs`, healthcheck `test`, …).
-public enum StringOrList: Decodable, Sendable, Equatable {
+public enum StringOrList: Codable, Sendable, Hashable {
     case single(String)
     case list([String])
 
@@ -52,11 +57,21 @@ public enum StringOrList: Decodable, Sendable, Equatable {
             )
         }
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .single(let value):
+            try container.encode(value)
+        case .list(let values):
+            try container.encode(values)
+        }
+    }
 }
 
 /// `environment` / `labels` / build `args`: map form (`KEY: value`) or list
 /// form (`- KEY=value`, `- KEY` for pass-through with a nil value).
-public struct EnvironmentMap: Decodable, Sendable, Equatable {
+public struct EnvironmentMap: Codable, Sendable, Hashable {
     public let entries: [String: String?]
 
     public init(entries: [String: String?]) { self.entries = entries }
@@ -81,6 +96,11 @@ public struct EnvironmentMap: Decodable, Sendable, Equatable {
                 .init(codingPath: decoder.codingPath, debugDescription: "expected map or KEY=VALUE list")
             )
         }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(entries)
     }
 }
 

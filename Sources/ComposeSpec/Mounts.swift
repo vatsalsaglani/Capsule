@@ -8,7 +8,7 @@ public enum ComposeSyntaxError: Error, Equatable, Sendable {
 /// `ports:` entry — short syntax ("8080:80", "127.0.0.1:8080:80/udp", 80) or
 /// long syntax ({target, published, protocol, host_ip}).
 /// Maps 1:1 onto `container run -p` (plan §4.3).
-public struct PortMapping: Decodable, Sendable, Equatable {
+public struct PortMapping: Codable, Sendable, Hashable {
     public var hostIP: String?
     public var published: Int?
     public var target: Int
@@ -85,8 +85,8 @@ public struct PortMapping: Decodable, Sendable, Equatable {
 /// "pgdata:/var/lib/postgresql/data") or long syntax
 /// ({type, source, target, read_only}). Named volumes become
 /// `container volume` resources; binds stay host paths (plan §4.3).
-public struct VolumeMount: Decodable, Sendable, Equatable {
-    public enum Kind: String, Decodable, Sendable {
+public struct VolumeMount: Codable, Sendable, Hashable {
+    public enum Kind: String, Codable, Sendable, Hashable {
         case volume, bind, tmpfs
     }
 

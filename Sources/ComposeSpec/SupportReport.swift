@@ -3,13 +3,13 @@ import Yams
 
 /// "Fail loud on anything else" (plan §4.2): every key we don't act on is
 /// reported, per-key policy warning (ignored) vs fatal.
-public struct SupportReport: Sendable, Equatable {
-    public enum Severity: Sendable, Equatable {
+public struct SupportReport: Codable, Sendable, Hashable {
+    public enum Severity: String, Codable, Sendable, Hashable {
         case warning
         case fatal
     }
 
-    public struct Finding: Sendable, Equatable {
+    public struct Finding: Codable, Sendable, Hashable {
         public let path: String
         public let message: String
         public let severity: Severity
@@ -59,10 +59,23 @@ enum SupportScanner {
         "pull_policy", "cpus", "mem_limit",
     ]
 
+    private static let knownBuildKeys: Set<String> = ["context", "dockerfile", "args", "target"]
+    private static let knownHealthcheckKeys: Set<String> = [
+        "test", "interval", "timeout", "retries", "start_period", "disable",
+    ]
+    private static let knownDependencyKeys: Set<String> = ["condition"]
+    private static let knownPortKeys: Set<String> = ["target", "published", "protocol", "host_ip"]
+    private static let knownMountKeys: Set<String> = ["type", "source", "target", "read_only"]
+    private static let knownVolumeKeys: Set<String> = ["external", "name"]
+    private static let knownNetworkKeys: Set<String> = ["external", "name", "internal"]
+
     static func scan(yaml: String) throws -> [SupportReport.Finding] {
-        guard let root = try Yams.compose(yaml: yaml),
-              case .mapping(let topLevel) = root
-        else { return [] }
+        guard let root = try Yams.compose(yaml: yaml) else { return [] }
+        return scan(root: root)
+    }
+
+    static func scan(root: Node) -> [SupportReport.Finding] {
+        guard case .mapping(let topLevel) = root else { return [] }
 
         var findings: [SupportReport.Finding] = []
         for (keyNode, valueNode) in topLevel {
@@ -85,6 +98,10 @@ enum SupportScanner {
             }
             if key == "services", case .mapping(let services) = valueNode {
                 findings.append(contentsOf: scanServices(services))
+            } else if key == "volumes", case .mapping(let volumes) = valueNode {
+                findings.append(contentsOf: scanNamedResources(volumes, root: "volumes", knownKeys: knownVolumeKeys))
+            } else if key == "networks", case .mapping(let networks) = valueNode {
+                findings.append(contentsOf: scanNamedResources(networks, root: "networks", knownKeys: knownNetworkKeys))
             }
         }
         return findings
@@ -96,18 +113,91 @@ enum SupportScanner {
             guard let serviceName = serviceNameNode.string,
                   case .mapping(let body) = serviceNode
             else { continue }
-            for (keyNode, _) in body {
-                guard let key = keyNode.string, !knownServiceKeys.contains(key) else { continue }
-                let message = deferredServiceKeys.contains(key)
-                    ? "planned for v1.1+ (ignored for now)"
-                    : "unsupported key (ignored)"
-                findings.append(.init(
-                    path: "services.\(serviceName).\(key)",
-                    message: message,
-                    severity: .warning
-                ))
+            for (keyNode, valueNode) in body {
+                guard let key = keyNode.string else { continue }
+                let path = "services.\(serviceName).\(key)"
+                guard knownServiceKeys.contains(key) else {
+                    let message = deferredServiceKeys.contains(key)
+                        ? "planned for v1.1+ (ignored for now)"
+                        : "unsupported key (ignored)"
+                    findings.append(.init(path: path, message: message, severity: .warning))
+                    continue
+                }
+                switch key {
+                case "build":
+                    findings.append(contentsOf: scanMapping(valueNode, path: path, knownKeys: knownBuildKeys))
+                case "healthcheck":
+                    findings.append(contentsOf: scanMapping(valueNode, path: path, knownKeys: knownHealthcheckKeys))
+                case "depends_on":
+                    if case .mapping(let dependencies) = valueNode {
+                        for (dependency, requirement) in dependencies {
+                            guard let dependencyName = dependency.string else { continue }
+                            findings.append(contentsOf: scanMapping(
+                                requirement,
+                                path: "\(path).\(dependencyName)",
+                                knownKeys: knownDependencyKeys
+                            ))
+                        }
+                    }
+                case "ports":
+                    findings.append(contentsOf: scanSequenceMappings(valueNode, path: path, knownKeys: knownPortKeys))
+                case "volumes":
+                    findings.append(contentsOf: scanSequenceMappings(valueNode, path: path, knownKeys: knownMountKeys))
+                case "networks":
+                    if case .mapping(let networks) = valueNode {
+                        for (network, attachment) in networks {
+                            guard let networkName = network.string else { continue }
+                            findings.append(contentsOf: scanMapping(
+                                attachment,
+                                path: "\(path).\(networkName)",
+                                knownKeys: []
+                            ))
+                        }
+                    }
+                default:
+                    break
+                }
             }
         }
         return findings
+    }
+
+    private static func scanNamedResources(
+        _ resources: Yams.Node.Mapping,
+        root: String,
+        knownKeys: Set<String>
+    ) -> [SupportReport.Finding] {
+        Array(resources).flatMap { (pair: (key: Node, value: Node)) -> [SupportReport.Finding] in
+            let (nameNode, valueNode) = pair
+            guard let name = nameNode.string else { return [] }
+            return scanMapping(valueNode, path: "\(root).\(name)", knownKeys: knownKeys)
+        }
+    }
+
+    private static func scanSequenceMappings(
+        _ node: Node,
+        path: String,
+        knownKeys: Set<String>
+    ) -> [SupportReport.Finding] {
+        guard case .sequence(let entries) = node else { return [] }
+        return entries.enumerated().flatMap { index, entry in
+            scanMapping(entry, path: "\(path)[\(index)]", knownKeys: knownKeys)
+        }
+    }
+
+    private static func scanMapping(
+        _ node: Node,
+        path: String,
+        knownKeys: Set<String>
+    ) -> [SupportReport.Finding] {
+        guard case .mapping(let mapping) = node else { return [] }
+        return mapping.compactMap { keyNode, _ in
+            guard let key = keyNode.string, !knownKeys.contains(key) else { return nil }
+            return SupportReport.Finding(
+                path: "\(path).\(key)",
+                message: "unsupported key (ignored)",
+                severity: .warning
+            )
+        }
     }
 }

@@ -4,7 +4,7 @@ import ContainerClient
 struct ListCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "ls",
-        abstract: "List containers (project grouping arrives with compose in M2)."
+        abstract: "List containers. Use `capsule compose ps` for a project-scoped view."
     )
 
     @Flag(name: .shortAndLong, help: "Include containers that are not running.")

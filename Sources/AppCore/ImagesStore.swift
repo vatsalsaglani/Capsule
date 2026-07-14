@@ -123,6 +123,7 @@ public final class ImagesStore {
     // MARK: - Mutations
 
     public func tag(source: String, target: String) async {
+        lastActionError = nil
         do {
             try await runtime.tagImage(source: source, target: target)
             await refresh()
@@ -132,6 +133,7 @@ public final class ImagesStore {
     }
 
     public func delete(reference: String) async {
+        lastActionError = nil
         do {
             try await runtime.deleteImage(reference: reference)
             await refresh()

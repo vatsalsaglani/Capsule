@@ -169,6 +169,10 @@ public struct ContainerDetail: Sendable, Equatable {
     public let imageDigest: String?
     public let labels: [String: String]
     public let ports: [PortMapping]
+    /// Network names requested in `configuration.networks[]`. Unlike the
+    /// resolved `networks` status array, this remains useful when a container
+    /// is stopped and has no active address.
+    public let requestedNetworks: [String]
     public let networks: [NetworkAttachment]
     public let dns: DNSConfiguration?
     public let platform: Platform?
@@ -189,6 +193,7 @@ public struct ContainerDetail: Sendable, Equatable {
         imageDigest: String? = nil,
         labels: [String: String] = [:],
         ports: [PortMapping] = [],
+        requestedNetworks: [String] = [],
         networks: [NetworkAttachment] = [],
         dns: DNSConfiguration? = nil,
         platform: Platform? = nil,
@@ -206,6 +211,7 @@ public struct ContainerDetail: Sendable, Equatable {
         self.imageDigest = imageDigest
         self.labels = labels
         self.ports = ports
+        self.requestedNetworks = requestedNetworks
         self.networks = networks
         self.dns = dns
         self.platform = platform
@@ -229,13 +235,16 @@ extension ContainerDetail: Decodable {
         case state, startedDate, networks
     }
     private enum ConfigurationKeys: String, CodingKey {
-        case creationDate, image, labels, publishedPorts, dns, platform, resources, stopSignal, useInit, readOnly, mounts
+        case creationDate, image, labels, publishedPorts, networks, dns, platform, resources, stopSignal, useInit, readOnly, mounts
     }
     private enum ImageKeys: String, CodingKey {
         case reference, descriptor
     }
     private enum DescriptorKeys: String, CodingKey {
         case digest
+    }
+    private struct RequestedNetwork: Decodable {
+        let network: String
     }
 
     public init(from decoder: Decoder) throws {
@@ -252,6 +261,7 @@ extension ContainerDetail: Decodable {
         var imageDigest: String?
         var labels: [String: String] = [:]
         var ports: [PortMapping] = []
+        var requestedNetworks: [String] = []
         var dns: DNSConfiguration?
         var platform: Platform?
         var resources: Resources?
@@ -264,6 +274,7 @@ extension ContainerDetail: Decodable {
             createdAt = try configuration.decodeIfPresent(Date.self, forKey: .creationDate)
             labels = (try? configuration.decode([String: String].self, forKey: .labels)) ?? [:]
             ports = (try? configuration.decode([PortMapping].self, forKey: .publishedPorts)) ?? []
+            requestedNetworks = (try? configuration.decode([RequestedNetwork].self, forKey: .networks))?.map(\.network) ?? []
             dns = try configuration.decodeIfPresent(DNSConfiguration.self, forKey: .dns)
             platform = try configuration.decodeIfPresent(Platform.self, forKey: .platform)
             resources = try configuration.decodeIfPresent(Resources.self, forKey: .resources)
@@ -289,6 +300,7 @@ extension ContainerDetail: Decodable {
             imageDigest: imageDigest,
             labels: labels,
             ports: ports,
+            requestedNetworks: requestedNetworks,
             networks: networks,
             dns: dns,
             platform: platform,

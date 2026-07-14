@@ -1,7 +1,7 @@
 /// Health state machine per service: starting → healthy | unhealthy, gating
 /// `depends_on: service_healthy` (plan §4.6). The probe loop (exec-based
 /// checks via ContainerRuntime) lands in M3.
-public enum HealthState: String, Sendable, Codable {
+public enum HealthState: String, Sendable, Codable, Hashable {
     case starting
     case healthy
     case unhealthy

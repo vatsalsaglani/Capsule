@@ -13,9 +13,12 @@ public actor FakeContainerRuntime: ContainerRuntime {
         case cliVersion, systemStatus, systemDiskUsage, systemStart, systemStop
         case listContainers, inspectContainer, createContainer, startContainer
         case stopContainer, killContainer, deleteContainer, logs, exec, stats
-        case listImages, pullImage, deleteImage, tagImage
-        case listVolumes, createVolume, deleteVolume
-        case listNetworks, createNetwork, deleteNetwork
+        case listImages, pullImage, deleteImage, tagImage, buildImage
+        case builderStatus, startBuilder, stopBuilder, deleteBuilder
+        case listVolumes, createVolume, deleteVolume, pruneVolumes
+        case listNetworks, createNetwork, deleteNetwork, pruneNetworks
+        case listMachines, inspectMachine, createMachine, startMachine
+        case stopMachine, deleteMachine, machineLogs
     }
 
     /// One case per `ContainerRuntime` method, carrying the exact arguments
@@ -35,17 +38,32 @@ public actor FakeContainerRuntime: ContainerRuntime {
         case deleteContainer(id: String, force: Bool)
         case logs(id: String, follow: Bool, tail: Int?)
         case exec(id: String, argv: [String], timeout: Duration)
+        case execWithOptions(id: String, argv: [String], options: ExecOptions, timeout: Duration)
         case stats(ids: [String])
         case listImages
         case pullImage(reference: String, platform: String?)
         case deleteImage(reference: String)
         case tagImage(source: String, target: String)
+        case buildImage(ImageBuildSpec)
+        case builderStatus
+        case startBuilder(BuilderConfiguration)
+        case stopBuilder
+        case deleteBuilder(force: Bool)
         case listVolumes
-        case createVolume(name: String, labels: [String: String])
+        case createVolume(VolumeCreateSpec)
         case deleteVolume(name: String)
+        case pruneVolumes
         case listNetworks
-        case createNetwork(name: String, labels: [String: String], isInternal: Bool)
+        case createNetwork(NetworkCreateSpec)
         case deleteNetwork(name: String)
+        case pruneNetworks
+        case listMachines
+        case inspectMachine(id: String)
+        case createMachine(MachineCreateSpec)
+        case startMachine(id: String)
+        case stopMachine(id: String)
+        case deleteMachine(id: String)
+        case machineLogs(id: String, source: MachineLogSource, follow: Bool, tail: Int?)
     }
 
     public private(set) var calls: [Call] = []
@@ -60,8 +78,15 @@ public actor FakeContainerRuntime: ContainerRuntime {
     private var execResultsByID: [String: ExecResult] = [:]
     private var imagesValue: [ImageSummary] = []
     private var pullEventsByReference: [String: [PullProgress]] = [:]
+    private var buildEventsByTag: [String: [BuildProgress]] = [:]
+    private var builderStatusValue = BuilderStatus.absent
     private var volumesValue: [VolumeSummary] = []
     private var networksValue: [NetworkSummary] = []
+    private var machinesValue: [MachineSummary] = []
+    private var machineDetailsByID: [String: MachineDetail] = [:]
+    private var machineLogLinesByID: [String: [LogLine]] = [:]
+    private var volumePruneReport = PruneReport(removedNames: [])
+    private var networkPruneReport = PruneReport(removedNames: [])
     private var errors: [Operation: any Error] = [:]
     private var createCounter = 0
 
@@ -117,12 +142,40 @@ public actor FakeContainerRuntime: ContainerRuntime {
         pullEventsByReference[reference] = events
     }
 
+    public func setBuildEvents(_ events: [BuildProgress], forTag tag: String) {
+        buildEventsByTag[tag] = events
+    }
+
+    public func setBuilderStatus(_ status: BuilderStatus) {
+        builderStatusValue = status
+    }
+
     public func setVolumes(_ volumes: [VolumeSummary]) {
         volumesValue = volumes
     }
 
     public func setNetworks(_ networks: [NetworkSummary]) {
         networksValue = networks
+    }
+
+    public func setMachines(_ machines: [MachineSummary]) {
+        machinesValue = machines
+    }
+
+    public func setMachineDetail(_ detail: MachineDetail, forID id: String) {
+        machineDetailsByID[id] = detail
+    }
+
+    public func setMachineLogLines(_ lines: [LogLine], forID id: String) {
+        machineLogLinesByID[id] = lines
+    }
+
+    public func setVolumePruneReport(_ report: PruneReport) {
+        volumePruneReport = report
+    }
+
+    public func setNetworkPruneReport(_ report: PruneReport) {
+        networkPruneReport = report
     }
 
     /// Makes `operation` throw `error` on every subsequent call until
@@ -153,8 +206,15 @@ public actor FakeContainerRuntime: ContainerRuntime {
         execResultsByID = [:]
         imagesValue = []
         pullEventsByReference = [:]
+        buildEventsByTag = [:]
+        builderStatusValue = .absent
         volumesValue = []
         networksValue = []
+        machinesValue = []
+        machineDetailsByID = [:]
+        machineLogLinesByID = [:]
+        volumePruneReport = PruneReport(removedNames: [])
+        networkPruneReport = PruneReport(removedNames: [])
         errors = [:]
         createCounter = 0
     }
@@ -242,6 +302,22 @@ public actor FakeContainerRuntime: ContainerRuntime {
         return execResultsByID[id] ?? ExecResult(exitCode: 0, stdout: Data(), stderr: Data())
     }
 
+    public func exec(
+        id: String,
+        argv: [String],
+        options: ExecOptions,
+        timeout: Duration
+    ) async throws -> ExecResult {
+        guard options.user != nil else {
+            return try await exec(id: id, argv: argv, timeout: timeout)
+        }
+        try record(
+            .execWithOptions(id: id, argv: argv, options: options, timeout: timeout),
+            operation: .exec
+        )
+        return execResultsByID[id] ?? ExecResult(exitCode: 0, stdout: Data(), stderr: Data())
+    }
+
     public func stats(ids: [String]) async throws -> AsyncThrowingStream<[StatsSample], Error> {
         try record(.stats(ids: ids), operation: .stats)
         let ticks = statsTicks
@@ -273,17 +349,48 @@ public actor FakeContainerRuntime: ContainerRuntime {
         try record(.tagImage(source: source, target: target), operation: .tagImage)
     }
 
+    public func buildImage(_ spec: ImageBuildSpec) async throws -> AsyncThrowingStream<BuildProgress, Error> {
+        try record(.buildImage(spec), operation: .buildImage)
+        let events = buildEventsByTag[spec.tag] ?? []
+        let (stream, continuation) = AsyncThrowingStream.makeStream(of: BuildProgress.self)
+        for event in events { continuation.yield(event) }
+        continuation.finish()
+        return stream
+    }
+
+    public func builderStatus() async throws -> BuilderStatus {
+        try record(.builderStatus, operation: .builderStatus)
+        return builderStatusValue
+    }
+
+    public func startBuilder(_ configuration: BuilderConfiguration) async throws {
+        try record(.startBuilder(configuration), operation: .startBuilder)
+    }
+
+    public func stopBuilder() async throws {
+        try record(.stopBuilder, operation: .stopBuilder)
+    }
+
+    public func deleteBuilder(force: Bool) async throws {
+        try record(.deleteBuilder(force: force), operation: .deleteBuilder)
+    }
+
     public func listVolumes() async throws -> [VolumeSummary] {
         try record(.listVolumes, operation: .listVolumes)
         return volumesValue
     }
 
-    public func createVolume(name: String, labels: [String: String]) async throws {
-        try record(.createVolume(name: name, labels: labels), operation: .createVolume)
+    public func createVolume(_ spec: VolumeCreateSpec) async throws {
+        try record(.createVolume(spec), operation: .createVolume)
     }
 
     public func deleteVolume(name: String) async throws {
         try record(.deleteVolume(name: name), operation: .deleteVolume)
+    }
+
+    public func pruneVolumes() async throws -> PruneReport {
+        try record(.pruneVolumes, operation: .pruneVolumes)
+        return volumePruneReport
     }
 
     public func listNetworks() async throws -> [NetworkSummary] {
@@ -291,11 +398,63 @@ public actor FakeContainerRuntime: ContainerRuntime {
         return networksValue
     }
 
-    public func createNetwork(name: String, labels: [String: String], isInternal: Bool) async throws {
-        try record(.createNetwork(name: name, labels: labels, isInternal: isInternal), operation: .createNetwork)
+    public func createNetwork(_ spec: NetworkCreateSpec) async throws {
+        try record(.createNetwork(spec), operation: .createNetwork)
     }
 
     public func deleteNetwork(name: String) async throws {
         try record(.deleteNetwork(name: name), operation: .deleteNetwork)
+    }
+
+    public func pruneNetworks() async throws -> PruneReport {
+        try record(.pruneNetworks, operation: .pruneNetworks)
+        return networkPruneReport
+    }
+
+    public func listMachines() async throws -> [MachineSummary] {
+        try record(.listMachines, operation: .listMachines)
+        return machinesValue
+    }
+
+    public func inspectMachine(id: String) async throws -> MachineDetail {
+        try record(.inspectMachine(id: id), operation: .inspectMachine)
+        guard let detail = machineDetailsByID[id] else {
+            throw RuntimeError.resourceNotFound(kind: "machine", id: id)
+        }
+        return detail
+    }
+
+    public func createMachine(_ spec: MachineCreateSpec) async throws -> String {
+        try record(.createMachine(spec), operation: .createMachine)
+        return spec.name ?? "fake-machine"
+    }
+
+    public func startMachine(id: String) async throws {
+        try record(.startMachine(id: id), operation: .startMachine)
+    }
+
+    public func stopMachine(id: String) async throws {
+        try record(.stopMachine(id: id), operation: .stopMachine)
+    }
+
+    public func deleteMachine(id: String) async throws {
+        try record(.deleteMachine(id: id), operation: .deleteMachine)
+    }
+
+    public func machineLogs(
+        id: String,
+        source: MachineLogSource,
+        follow: Bool,
+        tail: Int?
+    ) async throws -> AsyncThrowingStream<LogLine, Error> {
+        try record(
+            .machineLogs(id: id, source: source, follow: follow, tail: tail),
+            operation: .machineLogs
+        )
+        let values = machineLogLinesByID[id] ?? []
+        let (stream, continuation) = AsyncThrowingStream.makeStream(of: LogLine.self)
+        for value in values { continuation.yield(value) }
+        continuation.finish()
+        return stream
     }
 }

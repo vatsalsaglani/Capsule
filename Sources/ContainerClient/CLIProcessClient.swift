@@ -72,7 +72,13 @@ public struct CLIProcessClient: ContainerRuntime {
     /// finding #7). Never append `--format json` here.
     public func inspectContainer(id: String) async throws -> ContainerDetail {
         let command = "container inspect \(id)"
-        let result = try await invoke(["inspect", id])
+        let result: SubprocessResult
+        do {
+            result = try await invoke(["inspect", id])
+        } catch RuntimeError.commandFailed(_, _, let stderr)
+            where stderr.lowercased().contains("not found") || stderr.lowercased().contains("no such") {
+            throw RuntimeError.resourceNotFound(kind: "container", id: id)
+        }
         do {
             let details = try RuntimeJSON.makeDecoder().decode([ContainerDetail].self, from: result.stdout)
             guard let detail = details.first else {
@@ -158,9 +164,24 @@ public struct CLIProcessClient: ContainerRuntime {
     /// non-zero exit as "unhealthy," so this is the correct behavior for
     /// that consumer, not a gap.
     public func exec(id: String, argv: [String], timeout: Duration) async throws -> ExecResult {
+        try await exec(id: id, argv: argv, options: .containerDefault, timeout: timeout)
+    }
+
+    public func exec(
+        id: String,
+        argv: [String],
+        options: ExecOptions,
+        timeout: Duration
+    ) async throws -> ExecResult {
+        var arguments = ["exec"]
+        if let user = options.user {
+            arguments.append(contentsOf: ["--user", user])
+        }
+        arguments.append(id)
+        arguments.append(contentsOf: argv)
         let result = try await Subprocess.run(
             executablePath: binaryPath,
-            arguments: ["exec", id] + argv,
+            arguments: arguments,
             timeout: timeout
         )
         return ExecResult(exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr)
@@ -251,14 +272,92 @@ public struct CLIProcessClient: ContainerRuntime {
         try await invoke(["image", "tag", source, target])
     }
 
+    /// S5 verified `--progress plain` as line-oriented and ANSI-free. The
+    /// probe captured combined output and did not establish a stable
+    /// stdout/stderr split, so both descriptors are deliberately merged. The
+    /// stream's termination handler carries consumer cancellation into the
+    /// standard SIGTERM→grace→SIGKILL subprocess contract.
+    public func buildImage(_ spec: ImageBuildSpec) async throws -> AsyncThrowingStream<BuildProgress, Error> {
+        var arguments = ["build", "--progress", "plain", "--tag", spec.tag]
+        if let dockerfile = spec.dockerfile {
+            arguments.append(contentsOf: ["--file", dockerfile.path])
+        }
+        for (key, value) in spec.arguments.sorted(by: { $0.key < $1.key }) {
+            arguments.append(contentsOf: ["--build-arg", "\(key)=\(value)"])
+        }
+        if let target = spec.target {
+            arguments.append(contentsOf: ["--target", target])
+        }
+        if let platform = spec.platform {
+            arguments.append(contentsOf: ["--platform", platform])
+        }
+        for (key, value) in spec.labels.sorted(by: { $0.key < $1.key }) {
+            arguments.append(contentsOf: ["--label", "\(key)=\(value)"])
+        }
+        if spec.cachePolicy == .noCache { arguments.append("--no-cache") }
+        if spec.baseImagePolicy == .pull { arguments.append("--pull") }
+        arguments.append(spec.contextDirectory.path)
+
+        return try SubprocessLineStream.run(
+            executablePath: binaryPath,
+            arguments: arguments,
+            commandDescription: "container " + arguments.joined(separator: " "),
+            readFrom: .combined,
+            bufferingPolicy: .bufferingNewest(4096),
+            transform: { BuildProgress(message: $0) }
+        )
+    }
+
+    public func builderStatus() async throws -> BuilderStatus {
+        let values: [BuilderRuntimeDTO] = try await invokeJSON(["builder", "status"])
+        guard let value = values.first else { return .absent }
+        let state: BuilderState = switch value.status.state {
+        case "running": .running
+        case "stopped": .stopped
+        default: .unknown(value.status.state)
+        }
+        return BuilderStatus(
+            state: state,
+            containerID: value.id,
+            imageReference: value.configuration.image.reference,
+            ipAddresses: value.status.networks.compactMap(\.ipv4Address),
+            cpus: value.configuration.resources.cpus,
+            memoryBytes: value.configuration.resources.memoryInBytes
+        )
+    }
+
+    public func startBuilder(_ configuration: BuilderConfiguration) async throws {
+        var arguments = ["builder", "start"]
+        if let cpus = configuration.cpus {
+            arguments.append(contentsOf: ["--cpus", String(cpus)])
+        }
+        if let memoryBytes = configuration.memoryBytes {
+            arguments.append(contentsOf: ["--memory", String(memoryBytes)])
+        }
+        try await invoke(arguments, timeout: .seconds(900))
+    }
+
+    public func stopBuilder() async throws {
+        try await invoke(["builder", "stop"], timeout: .seconds(120))
+    }
+
+    public func deleteBuilder(force: Bool) async throws {
+        var arguments = ["builder", "delete"]
+        if force { arguments.append("--force") }
+        try await invoke(arguments, timeout: .seconds(120))
+    }
+
     public func listVolumes() async throws -> [VolumeSummary] {
         try await invokeJSON(["volume", "ls"])
     }
 
-    public func createVolume(name: String, labels: [String: String]) async throws {
+    public func createVolume(_ spec: VolumeCreateSpec) async throws {
         var arguments = ["volume", "create"]
-        arguments.append(contentsOf: labelArguments(labels))
-        arguments.append(name)
+        arguments.append(contentsOf: labelArguments(spec.labels))
+        if let capacityBytes = spec.capacityBytes {
+            arguments.append(contentsOf: ["-s", String(capacityBytes)])
+        }
+        arguments.append(spec.name)
         try await invoke(arguments)
     }
 
@@ -266,15 +365,28 @@ public struct CLIProcessClient: ContainerRuntime {
         try await invoke(["volume", "delete", name])
     }
 
+    public func pruneVolumes() async throws -> PruneReport {
+        let before = try await listVolumes().map(\.name)
+        let result = try await invoke(["volume", "prune"])
+        let after = try await listVolumes().map(\.name)
+        return pruneReport(before: before, after: after, result: result)
+    }
+
     public func listNetworks() async throws -> [NetworkSummary] {
         try await invokeJSON(["network", "ls"])
     }
 
-    public func createNetwork(name: String, labels: [String: String], isInternal: Bool) async throws {
+    public func createNetwork(_ spec: NetworkCreateSpec) async throws {
         var arguments = ["network", "create"]
-        arguments.append(contentsOf: labelArguments(labels))
-        if isInternal { arguments.append("--internal") }
-        arguments.append(name)
+        arguments.append(contentsOf: labelArguments(spec.labels))
+        if spec.connectivity == .hostOnly { arguments.append("--internal") }
+        if let ipv4Subnet = spec.ipv4Subnet {
+            arguments.append(contentsOf: ["--subnet", ipv4Subnet])
+        }
+        if let ipv6Subnet = spec.ipv6Subnet {
+            arguments.append(contentsOf: ["--subnet-v6", ipv6Subnet])
+        }
+        arguments.append(spec.name)
         try await invoke(arguments)
     }
 
@@ -282,10 +394,115 @@ public struct CLIProcessClient: ContainerRuntime {
         try await invoke(["network", "delete", name])
     }
 
+    public func pruneNetworks() async throws -> PruneReport {
+        let before = try await listNetworks().map(\.name)
+        let result = try await invoke(["network", "prune"])
+        let after = try await listNetworks().map(\.name)
+        return pruneReport(before: before, after: after, result: result)
+    }
+
+    public func listMachines() async throws -> [MachineSummary] {
+        try await invokeJSON(["machine", "list"])
+    }
+
+    public func inspectMachine(id: String) async throws -> MachineDetail {
+        let command = "container machine inspect \(id)"
+        let result = try await invoke(["machine", "inspect", id])
+        do {
+            let values = try RuntimeJSON.makeDecoder().decode([MachineDetail].self, from: result.stdout)
+            guard let value = values.first else {
+                throw RuntimeError.decodingFailed(command: command, detail: "empty array in response")
+            }
+            return value
+        } catch let error as RuntimeError {
+            throw error
+        } catch {
+            throw RuntimeError.decodingFailed(command: command, detail: String(describing: error))
+        }
+    }
+
+    public func createMachine(_ spec: MachineCreateSpec) async throws -> String {
+        var arguments = ["machine", "create", "--progress", "plain"]
+        if let name = spec.name { arguments.append(contentsOf: ["--name", name]) }
+        if let platform = spec.platform { arguments.append(contentsOf: ["--platform", platform]) }
+        if let cpus = spec.cpus { arguments.append(contentsOf: ["--cpus", String(cpus)]) }
+        if let memoryBytes = spec.memoryBytes {
+            arguments.append(contentsOf: ["--memory", String(memoryBytes)])
+        }
+        arguments.append(contentsOf: ["--home-mount", spec.homeMount.rawValue])
+        if spec.setAsDefault { arguments.append("--set-default") }
+        if !spec.bootAfterCreation { arguments.append("--no-boot") }
+        if spec.nestedVirtualization { arguments.append("--virtualization") }
+        arguments.append(spec.imageReference)
+
+        let result = try await invoke(arguments, timeout: .seconds(900))
+        guard let id = result.stdoutText
+            .split(whereSeparator: \.isNewline)
+            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .last(where: { !$0.isEmpty }) else {
+            throw RuntimeError.decodingFailed(
+                command: "container machine create",
+                detail: "no machine id on stdout"
+            )
+        }
+        return id
+    }
+
+    public func startMachine(id: String) async throws {
+        // Apple container 1.1 intentionally has no `machine start` command.
+        // Its own integration tests boot through `machine run --root -n ID
+        // true`; use that exact non-interactive semantic here.
+        try await invoke(
+            ["machine", "run", "--root", "--name", id, "true"],
+            timeout: .seconds(300)
+        )
+    }
+
+    public func stopMachine(id: String) async throws {
+        try await invoke(["machine", "stop", id], timeout: .seconds(120))
+    }
+
+    public func deleteMachine(id: String) async throws {
+        try await invoke(["machine", "delete", id], timeout: .seconds(120))
+    }
+
+    public func machineLogs(
+        id: String,
+        source: MachineLogSource,
+        follow: Bool,
+        tail: Int?
+    ) async throws -> AsyncThrowingStream<LogLine, Error> {
+        var arguments = ["machine", "logs"]
+        if source == .boot { arguments.append("--boot") }
+        if follow { arguments.append("--follow") }
+        if let tail { arguments.append(contentsOf: ["-n", String(tail)]) }
+        arguments.append(id)
+        return try SubprocessLineStream.run(
+            executablePath: binaryPath,
+            arguments: arguments,
+            commandDescription: "container " + arguments.joined(separator: " "),
+            readFrom: .stdout,
+            bufferingPolicy: .bufferingNewest(4_096),
+            transform: { LogLine(text: $0) }
+        )
+    }
+
     /// `--label k=v`, one per entry, sorted by key — same determinism
     /// discipline as `RunSpec.createArguments`.
     private func labelArguments(_ labels: [String: String]) -> [String] {
         labels.sorted { $0.key < $1.key }.flatMap { ["--label", "\($0.key)=\($0.value)"] }
+    }
+
+    private func pruneReport(before: [String], after: [String], result: SubprocessResult) -> PruneReport {
+        let remaining = Set(after)
+        let removed = before.filter { !remaining.contains($0) }.sorted()
+        let notices = [result.stdoutText, result.stderrText].flatMap { output in
+            output
+                .split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+        return PruneReport(removedNames: removed, notices: notices)
     }
 
     @discardableResult
@@ -320,4 +537,27 @@ public struct CLIProcessClient: ContainerRuntime {
             throw RuntimeError.decodingFailed(command: command, detail: String(describing: error))
         }
     }
+}
+
+private struct BuilderRuntimeDTO: Decodable {
+    struct Configuration: Decodable {
+        struct Image: Decodable { let reference: String }
+        struct Resources: Decodable {
+            let cpus: Int
+            let memoryInBytes: UInt64
+        }
+
+        let image: Image
+        let resources: Resources
+    }
+
+    struct Status: Decodable {
+        struct Network: Decodable { let ipv4Address: String? }
+        let state: String
+        let networks: [Network]
+    }
+
+    let id: String
+    let configuration: Configuration
+    let status: Status
 }

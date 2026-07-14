@@ -1,7 +1,10 @@
+import ComposeRuntime
+import BuildManager
 import ContainerClient
 import EventBus
 import Foundation
 import Observation
+import ProjectStore
 import TerminalKit
 
 /// Composition root for the app-facing state (P1B B1). Builds the real
@@ -29,6 +32,7 @@ import TerminalKit
 public final class RuntimeSession {
     public let containers: ContainerListStore
     public let menuBar: MenuBarStore
+    public let composeSupervision: ComposeSupervisionStore
 
     /// `nil` exactly when construction hit the `runtimeMissing` path — there
     /// is nothing to poll.
@@ -41,6 +45,11 @@ public final class RuntimeSession {
     /// `ContainerDetailStore` this session builds (one bus per session, per
     /// this type's "construct once, share everywhere" contract).
     private let events: EventBus<RuntimeEvent>
+    private let projectStore: ProjectStore
+    private let stateCoordinator: ProjectStateCoordinator
+    private let supervisor: ComposeSupervisor?
+    private let buildCenter: BuildCenter?
+    @ObservationIgnored private var supervisionTask: Task<Void, Never>?
 
     /// Builds the real `CLIProcessClient`-backed pipeline (auto-locates the
     /// `container` binary).
@@ -64,10 +73,15 @@ public final class RuntimeSession {
     /// path production hits, without touching the real `container` binary.
     public init(
         makeRuntime: () throws -> any ContainerRuntime,
+        projectStore: ProjectStore = ProjectStore(),
         pollInterval: Duration = .seconds(2),
         idleInterval: Duration = .seconds(6),
         unavailableInterval: Duration = .seconds(5)
     ) {
+        self.projectStore = projectStore
+        let stateCoordinator = ProjectStateCoordinator(store: projectStore)
+        self.stateCoordinator = stateCoordinator
+        self.composeSupervision = ComposeSupervisionStore()
         let events = EventBus<RuntimeEvent>()
         self.events = events
         do {
@@ -82,11 +96,19 @@ public final class RuntimeSession {
                 unavailableInterval: unavailableInterval
             )
             self.containers = ContainerListStore(runtime: gateway, events: events)
+            self.supervisor = ComposeSupervisor(
+                runtime: gateway,
+                store: projectStore,
+                stateCoordinator: stateCoordinator
+            )
+            self.buildCenter = BuildCenter(runtime: gateway)
         } catch {
             self.runtime = nil
             self.poller = nil
             let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
             self.containers = ContainerListStore(runtimeMissingMessage: message)
+            self.supervisor = nil
+            self.buildCenter = nil
         }
         self.menuBar = MenuBarStore(containers: self.containers)
     }
@@ -123,6 +145,45 @@ public final class RuntimeSession {
         return SystemStore(runtime: runtime)
     }
 
+    public func makeComposeProjectsStore() -> ComposeProjectsStore? {
+        guard let runtime else { return nil }
+        return ComposeProjectsStore(
+            runtime: runtime,
+            store: projectStore,
+            stateCoordinator: stateCoordinator,
+            supervisor: supervisor,
+            supervisionStore: composeSupervision
+        )
+    }
+
+    public func makeVolumesStore() -> VolumesStore? {
+        guard let runtime else { return nil }
+        return VolumesStore(runtime: runtime)
+    }
+
+    public func makeNetworksStore() -> NetworksStore? {
+        guard let runtime else { return nil }
+        return NetworksStore(runtime: runtime)
+    }
+
+    public func makeBuildsStore() -> BuildsStore? {
+        guard let buildCenter else { return nil }
+        return BuildsStore(center: buildCenter)
+    }
+
+    public func makeMachinesStore() -> MachinesStore? {
+        guard let runtime else { return nil }
+        return MachinesStore(runtime: runtime)
+    }
+
+    /// Builds a visibility-driven metrics store over the shared gateway.
+    /// Collection views own its structured task, so stats polling pauses as
+    /// soon as the screen disappears (S4 polling-cost discipline).
+    public func makeContainerMetricsStore() -> ContainerMetricsStore? {
+        guard let runtime else { return nil }
+        return ContainerMetricsStore(runtime: runtime)
+    }
+
     /// Builds a fresh `TerminalSessionManager` (P1C) bound to the same
     /// shared runtime as `containers` (for `ShellDetector`'s non-interactive
     /// probes) and a `PTYExecSession` factory over the same `container`
@@ -152,12 +213,31 @@ public final class RuntimeSession {
     /// the `runtimeMissing` path) if construction hit `runtimeMissing`.
     public func start() async {
         await containers.start()
+        if supervisionTask == nil, let supervisor {
+            let stream = await events.subscribe(bufferingNewest: 1_024)
+            let supervisionStore = composeSupervision
+            supervisionTask = Task {
+                do {
+                    try await supervisor.run(events: stream) { snapshot in
+                        await supervisionStore.receive(snapshot)
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    supervisionStore.receive(error: error)
+                }
+            }
+        }
         await poller?.start()
     }
 
     /// Idempotent and safe to call whether or not `start()` was ever called.
     public func stop() async {
         await poller?.stop()
+        let task = supervisionTask
+        supervisionTask = nil
+        task?.cancel()
+        await task?.value
         containers.stop()
     }
 }
