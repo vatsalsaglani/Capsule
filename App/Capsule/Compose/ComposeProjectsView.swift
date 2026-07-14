@@ -23,18 +23,7 @@ struct ComposeProjectsView: View {
     var body: some View {
         Group {
             if let store {
-                HSplitView {
-                    projectNavigator(store)
-                        .frame(minWidth: 210, idealWidth: 245, maxWidth: 310)
-                    if let detailStore {
-                        ComposeProjectDetailView(store: detailStore, metricsStore: metricsStore)
-                            .id(detailStore.item.id)
-                            .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        dropTarget
-                            .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
+                projectContent(store)
             } else {
                 ContentUnavailableView("Runtime unavailable", systemImage: "square.stack.3d.up")
             }
@@ -75,6 +64,38 @@ struct ComposeProjectsView: View {
         .task {
             await store?.refresh()
             selectFirstProjectIfNeeded()
+        }
+    }
+
+    @ViewBuilder
+    private func projectContent(_ store: ComposeProjectsStore) -> some View {
+        switch store.phase {
+        case .loading:
+            ProgressView("Loading projects…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .failed(let message):
+            ContentUnavailableView(
+                "Couldn't Load Projects",
+                systemImage: "exclamationmark.triangle",
+                description: Text(message)
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .loaded(let projects) where projects.isEmpty:
+            emptyProjectState
+        case .loaded:
+            HSplitView {
+                projectNavigator(store)
+                    .frame(minWidth: 210, idealWidth: 245, maxWidth: 310, maxHeight: .infinity)
+                if let detailStore {
+                    ComposeProjectDetailView(store: detailStore, metricsStore: metricsStore)
+                        .id(detailStore.item.id)
+                        .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    dropTarget
+                        .frame(minWidth: 620, maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -122,15 +143,7 @@ struct ComposeProjectsView: View {
                     }
 
                     if projects.isEmpty {
-                        ContentUnavailableView {
-                            Label("No Compose Projects", systemImage: "square.stack.3d.up")
-                        } description: {
-                            Text("Import a Compose YAML file to create a project workspace.")
-                        } actions: {
-                            Button("Import Compose File") { showingImporter = true }
-                                .buttonStyle(.borderedProminent)
-                                .tint(CapsulePalette.accent)
-                        }
+                        emptyProjectState
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 6) {
@@ -151,7 +164,7 @@ struct ComposeProjectsView: View {
         CapsuleResourceSurface(
             layout: .row,
             isSelected: selection?.id == project.id,
-            accessibilityLabel: "Compose project (project.name)",
+            accessibilityLabel: "Compose project \(project.name)",
             select: { select(project) }
         ) {
             HStack(spacing: 9) {
@@ -191,6 +204,25 @@ struct ComposeProjectsView: View {
             importFile(url)
             return true
         }
+    }
+
+    private var emptyProjectState: some View {
+        ContentUnavailableView {
+            Label("No Compose Projects", systemImage: "square.stack.3d.up")
+        } description: {
+            Text("Import or drop a Compose YAML file to create your first project workspace.")
+        } actions: {
+            Button("Import Compose File") { showingImporter = true }
+                .buttonStyle(.borderedProminent)
+                .tint(CapsulePalette.accent)
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first else { return false }
+            importFile(url)
+            return true
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(CapsulePalette.background)
     }
 
     private func select(_ project: ComposeProjectItem) {
