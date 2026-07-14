@@ -229,3 +229,108 @@ private func supervisionEventually(
     continuation.finish()
     _ = try await task.value
 }
+
+@Test func supervisorUserStopPersistsIntentAndPreventsAlwaysRestart() async throws {
+    let state = StoredProjectState(
+        revision: "revision",
+        desiredRunning: true,
+        serviceConfigHashes: ["worker": "hash"],
+        services: [
+            "worker": StoredServiceState(
+                containerID: "demo-worker-1",
+                desiredRunning: true
+            ),
+        ]
+    )
+    let (store, root) = try makeSupervisionFixture(yaml: """
+    name: demo
+    services:
+      worker:
+        image: worker
+        restart: always
+    """, state: state)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let runtime = FakeContainerRuntime()
+    let running = ContainerSummary(
+        id: "demo-worker-1",
+        status: "running",
+        imageReference: "worker",
+        addresses: [],
+        labels: [
+            "capsule.project": "demo",
+            "capsule.service": "worker",
+            "capsule.index": "1",
+            "capsule.config-hash": "hash",
+        ]
+    )
+    await runtime.setContainers([running])
+    let supervisor = ComposeSupervisor(runtime: runtime, store: store)
+
+    _ = try await supervisor.send(.applyUserIntent(
+        projectID: "demo",
+        services: ServiceSelection(),
+        intent: .stop
+    ))
+    let stopped = ContainerSummary(
+        id: running.id,
+        status: "stopped",
+        imageReference: running.imageReference,
+        addresses: [],
+        labels: running.labels
+    )
+    await runtime.setContainers([stopped])
+    let (events, continuation) = AsyncStream.makeStream(of: RuntimeEvent.self)
+    let task = Task { try await supervisor.run(events: events) }
+    continuation.yield(.snapshot([stopped]))
+    try await Task.sleep(for: .milliseconds(180))
+
+    let persisted = try store.loadState(projectID: "demo").services["worker"]
+    #expect(persisted?.desiredRunning == false)
+    #expect(persisted?.stoppedByUser == true)
+    #expect(!(await runtime.calls.contains(.startContainer(id: stopped.id))))
+
+    continuation.finish()
+    _ = try await task.value
+}
+
+@Test func supervisorReconcileReportOnlyNeverMutatesAndHealStartsStoppedDesiredService() async throws {
+    let state = StoredProjectState(
+        revision: "revision",
+        desiredRunning: true,
+        serviceConfigHashes: ["worker": "hash"],
+        services: [
+            "worker": StoredServiceState(
+                containerID: "demo-worker-1",
+                desiredRunning: true
+            ),
+        ]
+    )
+    let (store, root) = try makeSupervisionFixture(yaml: """
+    name: demo
+    services:
+      worker: { image: worker }
+    """, state: state)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let runtime = FakeContainerRuntime()
+    let stopped = ContainerSummary(
+        id: "demo-worker-1",
+        status: "stopped",
+        imageReference: "worker",
+        addresses: [],
+        labels: [
+            "capsule.project": "demo",
+            "capsule.service": "worker",
+            "capsule.index": "1",
+            "capsule.config-hash": "hash",
+        ]
+    )
+    await runtime.setContainers([stopped])
+    let supervisor = ComposeSupervisor(runtime: runtime, store: store)
+
+    let report = try await supervisor.send(.reconcile(projectID: "demo", mode: .reportOnly))
+    #expect(report.projects.first?.drift.findings.contains { $0.kind == .unexpectedState } == true)
+    #expect(!(await runtime.calls.contains(.startContainer(id: stopped.id))))
+
+    _ = try await supervisor.send(.reconcile(projectID: "demo", mode: .heal))
+    #expect(await runtime.calls.contains(.startContainer(id: stopped.id)))
+}

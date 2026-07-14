@@ -110,3 +110,31 @@ import Testing
         try ResourceCommandRendering.labels(["missing-separator"])
     }
 }
+
+@Test func directBuildBuilderAndMachineCommandsParseTheirPublicOptions() throws {
+    let build = try #require(try CapsuleCommand.parseAsRoot([
+        "build", "/tmp/context", "--tag", "demo:dev", "--tag", "demo:latest",
+        "--file", "/tmp/context/Containerfile", "--build-arg", "TOKEN=value",
+        "--platform", "linux/arm64", "--target", "runtime", "--no-cache", "--pull",
+    ]) as? DirectBuildCommand)
+    #expect(build.context == "/tmp/context")
+    #expect(build.tag == ["demo:dev", "demo:latest"])
+    #expect(build.buildArguments == ["TOKEN=value"])
+    #expect(build.noCache && build.pull)
+
+    #expect(try CapsuleCommand.parseAsRoot(["builder", "status"]) is BuilderStatusCommand)
+    let machine = try #require(try CapsuleCommand.parseAsRoot([
+        "machines", "create", "alpine:3.22", "--name", "dev-machine",
+        "--cpus", "4", "--memory-bytes", "8589934592", "--home-mount", "ro",
+        "--no-boot", "--set-default", "--nested-virtualization",
+    ]) as? MachineCreateCommand)
+    #expect(machine.image == "alpine:3.22")
+    #expect(machine.name == "dev-machine")
+    #expect(machine.cpus == 4)
+    #expect(machine.memoryBytes == 8_589_934_592)
+    #expect(machine.homeMount == "ro")
+    #expect(machine.noBoot && machine.setDefault && machine.nestedVirtualization)
+    #expect(try CapsuleCommand.parseAsRoot(["machines", "logs", "--boot", "-f", "dev-machine"]) is MachineLogsCommand)
+    let delete = try #require(try CapsuleCommand.parseAsRoot(["machines", "rm", "dev-machine", "--force"]) as? MachineDeleteCommand)
+    #expect(delete.force)
+}

@@ -459,3 +459,90 @@ private enum ScriptedBinary {
     let captured = try String(contentsOfFile: capture, encoding: .utf8)
     #expect(captured == "stats\n--no-stream\n--format\njson\nweb-1\nweb-2\n")
 }
+
+@Test func machineListAndInspectDecodeRuntimeOnePointOneJSON() async throws {
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    if [ "$1" = machine ] && [ "$2" = list ]; then
+      echo '[{"id":"dev","status":"running","default":true,"ipAddress":"192.168.64.2","cpus":4,"memory":8589934592,"diskSize":107374182400,"createdDate":"2026-07-14T00:00:00Z"}]'
+      exit 0
+    fi
+    if [ "$1" = machine ] && [ "$2" = inspect ]; then
+      echo '[{"id":"dev","image":{"reference":"alpine:3.22"},"platform":{"os":"linux","architecture":"arm64"},"status":"running","startedDate":"2026-07-14T00:01:00Z","createdDate":"2026-07-14T00:00:00Z","containerId":"machine-dev","cpus":4,"memory":8589934592,"homeMount":"rw","diskSize":107374182400,"ipAddress":"192.168.64.2"}]'
+      exit 0
+    fi
+    exit 64
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    let values = try await client.listMachines()
+    let detail = try await client.inspectMachine(id: "dev")
+    #expect(values.first?.id == "dev")
+    #expect(values.first?.state == .running)
+    #expect(values.first?.memoryBytes == 8_589_934_592)
+    #expect(detail.imageReference == "alpine:3.22")
+    #expect(detail.homeMount == .readWrite)
+}
+
+@Test func argvEchoMachineCreateStartAndLogsUseVerifiedRuntimeShapes() async throws {
+    let capture = try ScriptedBinary.freshCapturePath()
+    let script = try ScriptedBinary.write("""
+    #!/bin/sh
+    printf '%s\\n' "$@" >> "\(capture)"
+    printf '%s\\n' --- >> "\(capture)"
+    if [ "$1" = machine ] && [ "$2" = create ]; then echo dev-machine; fi
+    if [ "$1" = machine ] && [ "$2" = logs ]; then echo ready; fi
+    exit 0
+    """)
+    let client = try CLIProcessClient(binaryPath: script)
+    _ = try await client.createMachine(MachineCreateSpec(
+        imageReference: "alpine:3.22",
+        name: "dev-machine",
+        platform: "linux/arm64",
+        cpus: 4,
+        memoryBytes: 8_589_934_592,
+        homeMount: .readOnly,
+        bootAfterCreation: false,
+        setAsDefault: true,
+        nestedVirtualization: true
+    ))
+    try await client.startMachine(id: "dev-machine")
+    for try await _ in try await client.machineLogs(id: "dev-machine", source: .boot, follow: true, tail: 50) {}
+
+    #expect(try String(contentsOfFile: capture, encoding: .utf8) == """
+    machine
+    create
+    --progress
+    plain
+    --name
+    dev-machine
+    --platform
+    linux/arm64
+    --cpus
+    4
+    --memory
+    8589934592
+    --home-mount
+    ro
+    --set-default
+    --no-boot
+    --virtualization
+    alpine:3.22
+    ---
+    machine
+    run
+    --root
+    --name
+    dev-machine
+    true
+    ---
+    machine
+    logs
+    --boot
+    --follow
+    -n
+    50
+    dev-machine
+    ---
+
+    """)
+}

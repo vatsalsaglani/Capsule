@@ -161,16 +161,26 @@ volumes:
     #expect(document.file.services["app"]?.restart == .onFailure(maxRetries: 3))
 }
 
-@Test func restartPolicyIsReportedHonestlyUntilSupervisorResidencyIsWired() throws {
+@Test func restartAlwaysIsAcceptedNowThatFrontendSupervisionIsResident() throws {
     let document = try ComposeParser().parse(yaml: """
     services:
       app:
         image: alpine
         restart: always
     """)
+    #expect(!document.support.findings.contains { $0.path == "services.app.restart" })
+}
+
+@Test func restartOnFailureReportsTheRuntimeExitStatusLimitation() throws {
+    let document = try ComposeParser().parse(yaml: """
+    services:
+      app:
+        image: alpine
+        restart: on-failure:3
+    """)
     #expect(document.support.findings.contains {
         $0.path == "services.app.restart" && $0.severity == .warning
-            && $0.message.contains("not active")
+            && $0.message.contains("does not expose exit status")
     })
 }
 
