@@ -9,7 +9,7 @@ struct CapsuleCommand: AsyncParsableCommand {
         Companion CLI to Capsule.app. Flag names and exit codes mirror \
         `docker compose` where the semantics genuinely match — never beyond.
         """,
-        version: "0.0.1",
+        version: "0.1.0-beta",
         subcommands: [
             ComposeCommand.self,
             DirectBuildCommand.self,
