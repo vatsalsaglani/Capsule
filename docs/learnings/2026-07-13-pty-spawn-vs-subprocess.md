@@ -158,6 +158,26 @@ general Swift 6.2 nuance (any `@MainActor` type conforming to a
 `nonisolated` protocol needs this), not SwiftTerm-specific, but SwiftTerm's
 delegate is the first place this codebase hits it.
 
+## Finding 8 — closed descriptor numbers are not stable test identities
+
+The full GitHub Actions suite exposed a race in
+`cooperativeTerminateReapsChildAndClosesMasterFD`: after awaiting
+`terminate()`, the test called `fcntl(masterFD, F_GETFD)` and expected
+`EBADF`. That assertion is only reliable while nothing else in the process
+opens a file descriptor. Swift Testing runs tests concurrently, and the
+kernel can reuse the just-closed low descriptor number for another test
+before the assertion executes. `fcntl` then succeeds on a different resource
+even though `PTYExecSession` closed its own PTY correctly. Process IDs have
+the same identity-reuse problem in principle.
+
+The deterministic contract is now observed at the ownership boundary:
+`PTYExecSession` records whether its `waitpid` path reaped the child and the
+return value from its one `close(masterFD)` call. Tests await `terminate()`
+and assert those actor-isolated outcomes instead of probing released numeric
+identifiers. This preserves parallel test execution and still verifies the
+actual syscalls; fixed sleeps or suite-wide serialization would only hide the
+race.
+
 ## Consequence
 
 - `PTYExecSession` has zero `Process` objects and zero new `@unchecked
@@ -184,6 +204,9 @@ delegate is the first place this codebase hits it.
   resumed exactly once by whichever of an unstructured timeout `Task` or
   `finish()` gets there first — deliberately *not* a structured child, so
   the loser never blocks the winner's return.
+- Teardown tests assert actor-recorded `waitpid`/`close` outcomes. Never use
+  an old PID or fd number as a stable post-release identity in a parallel
+  process; the kernel may have already reused it.
 - SwiftTerm stays App-only (`App/project.yml`, not root `Package.swift`) —
   confirmed compiling cleanly against the real dependency via a throwaway
   local SwiftPM probe, working around this environment's broken

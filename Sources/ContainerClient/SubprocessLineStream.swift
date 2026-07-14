@@ -30,13 +30,13 @@ enum StreamedFileDescriptor: Sendable {
 /// sooner, and the reader task (still the only writer) observes that as an
 /// ordinary EOF/exit-code transition and finishes once, as usual.
 ///
-/// The escalation path only ever captures `pid: Int32` (never the
-/// non-`Sendable` `Process`/`Pipe`/`FileHandle`) — `onTermination` sends
-/// `kill(pid, SIGTERM)` directly rather than calling `process.terminate()`,
-/// so nothing here needs to touch the `Process` object from outside the
-/// single reader `Task` that owns it, and no `@unchecked Sendable` wrapper is
-/// needed (contrast `Subprocess.swift`'s `UncheckedSendableBox`, which stays
-/// scoped to that file only).
+/// The escalation path only ever captures `pid: Int32` and a lock-guarded
+/// exit coordinator (never the non-`Sendable` `Process`/`Pipe`/`FileHandle`).
+/// Natural completion is delivered by `Process.terminationHandler`; the
+/// reader retains the `Process` lifetime but awaits that coordinator instead
+/// of calling Foundation's blocking `waitUntilExit()`, whose registration can
+/// wedge after a very fast child has already exited under concurrent test
+/// load.
 ///
 /// **Caveat — sequential, not concurrent, fd draining:** the reader only
 /// starts draining the *other* fd (for the failure-path stderr/stdout tail)
@@ -70,6 +70,11 @@ enum SubprocessLineStream {
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
         process.standardInput = FileHandle.nullDevice
+
+        let exitCoordinator = LineStreamExitCoordinator()
+        process.terminationHandler = { finished in
+            exitCoordinator.noteExit(finished.terminationStatus)
+        }
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -108,15 +113,24 @@ enum SubprocessLineStream {
             bufferingPolicy: bufferingPolicy
         )
 
-        continuation.onTermination = { @Sendable _ in
+        continuation.onTermination = { @Sendable termination in
+            // `finish()` also invokes this callback. A naturally completed
+            // stream has already observed the child's exit and must never
+            // signal a possibly reused PID.
+            guard case .cancelled = termination, !exitCoordinator.hasExited else { return }
             ProcessEscalation.terminateWithEscalation(
                 processIdentifier: pid,
                 terminate: { kill(pid, SIGTERM) },
-                grace: killEscalationGrace
+                grace: killEscalationGrace,
+                shouldEscalate: { !exitCoordinator.hasExited }
             )
         }
 
         Task {
+            // The termination handler belongs to `process`; retain the
+            // object until the reader has observed the stored exit result.
+            // No Process API is called from this asynchronous task.
+            defer { withExtendedLifetime(process) {} }
             var combinedTailLines: [String] = []
             do {
                 for try await line in readHandle.bytes.lines {
@@ -153,8 +167,7 @@ enum SubprocessLineStream {
                 otherHandle.closeFile()
             }
 
-            process.waitUntilExit()
-            let exitCode = process.terminationStatus
+            let exitCode = await exitCoordinator.waitForExit()
             if exitCode == 0 {
                 continuation.finish()
             } else {
@@ -168,5 +181,43 @@ enum SubprocessLineStream {
         }
 
         return stream
+    }
+}
+
+/// Bridges `Process.terminationHandler` into async code without blocking a
+/// cooperative executor thread. It deliberately supports exit-before-waiter
+/// ordering because tiny scripted commands often finish before the stream
+/// reader has drained both pipes.
+final class LineStreamExitCoordinator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var exitCode: Int32?
+    private var continuation: CheckedContinuation<Int32, Never>?
+
+    var hasExited: Bool {
+        lock.withLock { exitCode != nil }
+    }
+
+    func noteExit(_ code: Int32) {
+        let waiter: CheckedContinuation<Int32, Never>? = lock.withLock {
+            guard exitCode == nil else { return nil }
+            exitCode = code
+            let waiter = continuation
+            continuation = nil
+            return waiter
+        }
+        waiter?.resume(returning: code)
+    }
+
+    func waitForExit() async -> Int32 {
+        await withCheckedContinuation { continuation in
+            let completedCode: Int32? = lock.withLock {
+                if let exitCode { return exitCode }
+                self.continuation = continuation
+                return nil
+            }
+            if let completedCode {
+                continuation.resume(returning: completedCode)
+            }
+        }
     }
 }

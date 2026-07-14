@@ -82,18 +82,15 @@ private func collectOutput(
 
 @Test func cooperativeTerminateReapsChildAndClosesMasterFD() async throws {
     let session = try PTYExecSession(executablePath: "/bin/sh", arguments: ["-i"])
-    let pid = await session.pidForTesting
-    let masterFD = await session.masterFDForTesting
 
     await session.terminate()
 
-    // Child reaped: signal 0 is the POSIX liveness probe (no signal sent);
-    // ESRCH means the pid no longer exists.
-    #expect(kill(pid, 0) == -1)
-    #expect(errno == ESRCH)
-
-    // Master fd closed: `fcntl(fd, F_GETFD)` fails once the fd is closed.
-    #expect(fcntl(masterFD, F_GETFD) == -1)
+    // Assert the actor-owned syscall outcomes. Checking `kill(oldPID, 0)` or
+    // `fcntl(oldFD, F_GETFD)` after teardown is racy in the parallel suite:
+    // the kernel may already have reused that numeric identifier for a
+    // process or descriptor owned by another test.
+    #expect(await session.childWasReapedForTesting)
+    #expect(await session.masterFDCloseSucceededForTesting)
 
     // Stream finished — draining it should return immediately with nothing
     // further pending.

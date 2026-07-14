@@ -48,6 +48,8 @@ public actor PTYExecSession: TerminalSession {
     private var fileHandle: FileHandle?
     private var state: State = .running
     private var reapAttempted = false
+    private var childWasReaped = false
+    private var masterFDCloseResult: Int32?
     private var exitWaiters: [CheckedContinuation<Int32?, Never>] = []
     /// See `waitForGracefulExit`'s doc comment for why this exists instead
     /// of a `TaskGroup`-based race.
@@ -187,7 +189,8 @@ public actor PTYExecSession: TerminalSession {
     // black-box behavior.
 
     var pidForTesting: Int32 { childPID }
-    var masterFDForTesting: Int32 { masterFD }
+    var childWasReapedForTesting: Bool { childWasReaped }
+    var masterFDCloseSucceededForTesting: Bool { masterFDCloseResult == 0 }
 
     // MARK: - Private
 
@@ -214,10 +217,14 @@ public actor PTYExecSession: TerminalSession {
         for _ in 0..<80 {
             let result = waitpid(childPID, &status, WNOHANG)
             if result == childPID {
+                childWasReaped = true
                 reapedCode = Self.exitCode(fromStatus: status)
                 break
             }
             if result == -1 && errno == ECHILD {
+                // No waitable child remains. This is equivalent to a
+                // completed reap for teardown purposes.
+                childWasReaped = true
                 break
             }
             try? await Task.sleep(for: .milliseconds(25))
@@ -277,7 +284,7 @@ public actor PTYExecSession: TerminalSession {
             state = .exited(code: exitCode)
             fileHandle?.readabilityHandler = nil
             fileHandle = nil
-            close(masterFD)
+            masterFDCloseResult = close(masterFD)
             continuation.finish()
             let waiters = exitWaiters
             exitWaiters = []
@@ -326,7 +333,7 @@ public actor PTYExecSession: TerminalSession {
         // possible) — this just avoids leaking the master fd if a session
         // is ever dropped without `terminate()` being called.
         fileHandle?.readabilityHandler = nil
-        if case .exited = state {} else {
+        if masterFDCloseResult == nil {
             close(masterFD)
         }
     }

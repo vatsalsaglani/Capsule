@@ -71,7 +71,8 @@ public enum Subprocess {
                     ProcessEscalation.terminateWithEscalation(
                         processIdentifier: process.processIdentifier,
                         terminate: { if process.isRunning { process.terminate() } },
-                        grace: killEscalationGrace
+                        grace: killEscalationGrace,
+                        shouldEscalate: { !coordinator.hasExited }
                     ) {
                         // Fallback for a pathological case the grace/SIGKILL
                         // alone doesn't cover: a killed process can still
@@ -129,6 +130,10 @@ private final class RunCoordinator: @unchecked Sendable {
     private var openStreams = 2
     private var exitCode: Int32?
     private var continuation: CheckedContinuation<SubprocessResult, Never>?
+
+    var hasExited: Bool {
+        lock.withLock { exitCode != nil }
+    }
 
     func append(_ data: Data, to stream: Subprocess.StreamID) {
         lock.withLock {
@@ -196,6 +201,7 @@ enum ProcessEscalation {
         processIdentifier pid: Int32,
         terminate: () -> Void,
         grace: Duration,
+        shouldEscalate: @escaping @Sendable () -> Bool = { true },
         afterEscalation: (@Sendable () -> Void)? = nil
     ) {
         terminate()
@@ -205,7 +211,7 @@ enum ProcessEscalation {
             // `kill` still fails with ESRCH if the pid is gone — tolerate the
             // process already having exited on its own during the grace
             // window.
-            if kill(pid, 0) == 0 {
+            if shouldEscalate(), kill(pid, 0) == 0 {
                 kill(pid, SIGKILL)
             }
             afterEscalation?()

@@ -35,7 +35,7 @@ note and say so — don't delete history silently.
 - [2026-07-13 — `cpuUsageUsec` semantics: cumulative, not a rate](2026-07-13-cpu-usage-usec-semantics.md)
 - [2026-07-13 — swift-testing: `@Test` function names must be unique per target, not per file](2026-07-13-swift-testing-name-collisions.md)
 - [2026-07-13 — `container exec -it` PTY behavior + Terminal (P1C) integration path](2026-07-13-pty-exec-terminal.md)
-- [2026-07-13 — PTY spawn (`PTYExecSession`) vs. the `Subprocess`/`SubprocessLineStream` pattern](2026-07-13-pty-spawn-vs-subprocess.md)
+- [2026-07-13 — PTY spawn (`PTYExecSession`) vs. the `Subprocess`/`SubprocessLineStream` pattern](2026-07-13-pty-spawn-vs-subprocess.md) — includes released fd/PID identity reuse in parallel teardown tests
 - [2026-07-13 — runtime installer: apple/container GitHub release shape (P1D)](2026-07-13-runtime-installer-release-assets.md)
 - [2026-07-13 — `ContainerBinaryLocator`'s override env var wasn't validated (P1D)](2026-07-13-binary-locator-override-validation.md)
 - [2026-07-13 — container inspect does not expose process exit status](2026-07-13-container-exit-status-gap.md)
@@ -50,5 +50,6 @@ note and say so — don't delete history silently.
 - [2026-07-13 — container registries do not standardize image logos](2026-07-13-container-image-logo-metadata.md) — use an optional provider and disk cache for public official-image logos; keep the local blue fallback
 - [2026-07-14 — frontend supervision needs durable checkpoints](2026-07-14-frontend-supervision-checkpointing.md) — persist intent, health, deadlines, and refresh hosts after supervised restarts
 - [2026-07-14 — local diagnostics lifecycle and privacy boundary](2026-07-14-local-diagnostics-lifecycle.md) — delayed AppKit termination, honest unclean markers, and structured local-only exports
+- [2026-07-14 — Foundation `Process` stream exit registration under concurrent tests](2026-07-14-foundation-process-stream-exit.md) — store termination-handler results before awaiting, avoid signaling naturally finished PIDs, and serialize black-box process fixtures instead of widening production deadlines
 - [2026-07-14 — builder and machine runtime contracts](2026-07-14-builder-machine-runtime-contract.md) — structured empty states, semantic machine start via `run`, JSON shapes, progress redaction, and actor-reentrant lifecycle serialization
 - [2026-07-14 — branch-driven releases and GitHub Pages](2026-07-14-branch-release-pages.md) — exact-SHA CI gating, workflow-owned tags, prerelease-safe bundle versions, and released-source docs deployment

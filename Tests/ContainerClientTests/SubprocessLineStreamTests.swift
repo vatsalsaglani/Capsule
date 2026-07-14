@@ -2,6 +2,14 @@ import Foundation
 import Testing
 @testable import ContainerClient
 
+@Test func lineStreamExitCoordinatorHandlesExitBeforeWaiterInstallation() async {
+    let coordinator = LineStreamExitCoordinator()
+    coordinator.noteExit(23)
+
+    #expect(await coordinator.waitForExit() == 23)
+    #expect(coordinator.hasExited)
+}
+
 @Test func lineStreamYieldsMultipleLinesInOrder() async throws {
     let stream = try SubprocessLineStream.run(
         executablePath: "/bin/sh",

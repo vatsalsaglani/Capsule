@@ -30,6 +30,13 @@ private enum ScriptedBinary {
     }
 }
 
+/// These tests exercise the real `Foundation.Process` bridge. Running every
+/// scripted command at once can make an otherwise instant child exceed the
+/// production stats deadline under CI load, so keep this black-box suite
+/// serialized while the rest of the package remains fully parallel.
+@Suite(.serialized)
+struct ScriptedCLITests {
+
 @Test func createContainerParsesStdoutIDAmidStderrProgressNoise() async throws {
     let script = try ScriptedBinary.write("""
     #!/bin/sh
@@ -545,4 +552,6 @@ private enum ScriptedBinary {
     ---
 
     """)
+}
+
 }
