@@ -16,3 +16,4 @@ xcuserdata/
 .claude/settings.local.json
 
 dist/
+site/
