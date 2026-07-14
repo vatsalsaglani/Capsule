@@ -120,6 +120,16 @@ private actor OrderRecordingRuntime: ContainerRuntime {
     ])
 }
 
+@Test func gatewayForwardsDefaultKernelReadiness() async throws {
+    let base = FakeContainerRuntime()
+    let expected = DefaultKernelReadiness.notConfigured(for: .arm64)
+    await base.setDefaultKernelReadiness(expected)
+    let runtime: any ContainerRuntime = RuntimeGateway(base: base)
+
+    #expect(try await runtime.defaultKernelReadiness() == expected)
+    #expect(await base.calls == [.defaultKernelReadiness])
+}
+
 @Test func legacyRuntimeFailsLoudlyForExecIdentityOverride() async throws {
     let runtime: any ContainerRuntime = OrderRecordingRuntime()
     do {

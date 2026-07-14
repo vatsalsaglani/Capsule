@@ -148,6 +148,7 @@ struct ImagesView: View {
             image: image,
             inUse: store.isInUse(image, byContainers: session.containers.currentContainers),
             store: store,
+            iconCache: session.imageIcons,
             layout: layout,
             isSelected: selection == image.id,
             select: { selection = image.id }
@@ -169,6 +170,7 @@ private struct ImageRow: View {
     let image: ImageSummary
     let inUse: Bool
     let store: ImagesStore
+    let iconCache: ImageIconCache
     let layout: CapsuleResourceSurfaceLayout
     let isSelected: Bool
     let select: () -> Void
@@ -215,8 +217,7 @@ private struct ImageRow: View {
     private var summary: some View {
         VStack(alignment: .leading, spacing: layout == .card ? 9 : 4) {
             HStack(spacing: 7) {
-                Image(systemName: "opticaldisc.fill")
-                    .foregroundStyle(CapsulePalette.accent)
+                ContainerImageIcon(reference: image.reference, cache: iconCache)
                 Text(image.reference)
                     .font(.headline)
                     .lineLimit(1)

@@ -20,6 +20,12 @@ public protocol ContainerRuntime: Sendable {
     /// Backing command: `container system status --format json` (plan §2.2).
     func systemStatus() async throws -> SystemStatus
 
+    /// Read-only default-kernel readiness for the host architecture. The CLI
+    /// implementation uses `system status`'s app root and mirrors Apple
+    /// container 1.1's own managed `kernels/default.kernel-<arch>` lookup.
+    /// It never downloads, installs, or changes a kernel.
+    func defaultKernelReadiness() async throws -> DefaultKernelReadiness
+
     /// Backing command: `container system df --format json`.
     func systemDiskUsage() async throws -> SystemDiskUsage
 
@@ -189,6 +195,12 @@ public protocol ContainerRuntime: Sendable {
 }
 
 extension ContainerRuntime {
+    /// Source-compatible witness for older hand-written conformers. New
+    /// readiness consumers fail loudly until their runtime adopts the query.
+    public func defaultKernelReadiness() async throws -> DefaultKernelReadiness {
+        throw RuntimeError.notImplemented(operation: "defaultKernelReadiness")
+    }
+
     /// Source-compat shim for pre-contract call sites (App ContainersView).
     public func stopContainer(id: String) async throws { try await stopContainer(id: id, timeoutSeconds: nil) }
 

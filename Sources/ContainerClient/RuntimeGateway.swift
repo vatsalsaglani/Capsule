@@ -82,6 +82,10 @@ public actor RuntimeGateway: ContainerRuntime {
         try await base.systemStatus()
     }
 
+    public func defaultKernelReadiness() async throws -> DefaultKernelReadiness {
+        try await base.defaultKernelReadiness()
+    }
+
     public func systemDiskUsage() async throws -> SystemDiskUsage {
         try await base.systemDiskUsage()
     }

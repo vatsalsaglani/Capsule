@@ -159,9 +159,9 @@ struct MenuBarView: View {
         // the up/down cases this dot needs (§6.7 rule 1).
         Label(
             menuBar.runtimeUp ? "Runtime Running" : "Runtime Unavailable",
-            systemImage: menuBar.runtimeUp ? "circle.fill" : "circle"
+            systemImage: "circle.fill"
         )
-        .foregroundStyle(ContainerStateColor.color(for: menuBar.runtimeUp ? "running" : "stopped"))
+        .foregroundStyle(Color(nsColor: menuBar.runtimeUp ? .systemGreen : .systemRed))
         Text("\(menuBar.runningCount) running")
         Divider()
         Button("Stop All") {

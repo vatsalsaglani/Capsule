@@ -10,7 +10,7 @@ public actor FakeContainerRuntime: ContainerRuntime {
     /// One case per `ContainerRuntime` method (the source of truth for
     /// `setError`/`clearError` targeting).
     public enum Operation: String, Sendable, CaseIterable {
-        case cliVersion, systemStatus, systemDiskUsage, systemStart, systemStop
+        case cliVersion, systemStatus, defaultKernelReadiness, systemDiskUsage, systemStart, systemStop
         case listContainers, inspectContainer, createContainer, startContainer
         case stopContainer, killContainer, deleteContainer, logs, exec, stats
         case listImages, pullImage, deleteImage, tagImage, buildImage
@@ -26,6 +26,7 @@ public actor FakeContainerRuntime: ContainerRuntime {
     public enum Call: Sendable, Equatable {
         case cliVersion
         case systemStatus
+        case defaultKernelReadiness
         case systemDiskUsage
         case systemStart
         case systemStop
@@ -70,6 +71,7 @@ public actor FakeContainerRuntime: ContainerRuntime {
 
     private var cliVersionValue: SemanticVersion
     private var systemStatusValue: SystemStatus
+    private var defaultKernelReadinessValue: DefaultKernelReadiness
     private var diskUsageValue: SystemDiskUsage
     private var containersValue: [ContainerSummary] = []
     private var detailsByID: [String: ContainerDetail] = [:]
@@ -93,6 +95,7 @@ public actor FakeContainerRuntime: ContainerRuntime {
     public init() {
         cliVersionValue = SemanticVersion(major: 1, minor: 1, patch: 0)
         systemStatusValue = SystemStatus(status: "running")
+        defaultKernelReadinessValue = .configured()
         diskUsageValue = SystemDiskUsage(
             containers: ResourceUsage(total: 0, active: 0, sizeInBytes: 0, reclaimableBytes: 0),
             images: ResourceUsage(total: 0, active: 0, sizeInBytes: 0, reclaimableBytes: 0),
@@ -108,6 +111,10 @@ public actor FakeContainerRuntime: ContainerRuntime {
 
     public func setSystemStatus(_ status: SystemStatus) {
         systemStatusValue = status
+    }
+
+    public func setDefaultKernelReadiness(_ readiness: DefaultKernelReadiness) {
+        defaultKernelReadinessValue = readiness
     }
 
     public func setDiskUsage(_ usage: SystemDiskUsage) {
@@ -194,6 +201,7 @@ public actor FakeContainerRuntime: ContainerRuntime {
         calls = []
         cliVersionValue = SemanticVersion(major: 1, minor: 1, patch: 0)
         systemStatusValue = SystemStatus(status: "running")
+        defaultKernelReadinessValue = .configured()
         diskUsageValue = SystemDiskUsage(
             containers: ResourceUsage(total: 0, active: 0, sizeInBytes: 0, reclaimableBytes: 0),
             images: ResourceUsage(total: 0, active: 0, sizeInBytes: 0, reclaimableBytes: 0),
@@ -234,6 +242,11 @@ public actor FakeContainerRuntime: ContainerRuntime {
     public func systemStatus() async throws -> SystemStatus {
         try record(.systemStatus, operation: .systemStatus)
         return systemStatusValue
+    }
+
+    public func defaultKernelReadiness() async throws -> DefaultKernelReadiness {
+        try record(.defaultKernelReadiness, operation: .defaultKernelReadiness)
+        return defaultKernelReadinessValue
     }
 
     public func systemDiskUsage() async throws -> SystemDiskUsage {

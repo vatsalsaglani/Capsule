@@ -224,6 +224,7 @@ public enum ComposeEvent: Codable, Sendable, Hashable {
 
 public enum ComposeRuntimeError: Error, Sendable, Equatable {
     case stalePreparedPlan(expected: ProjectRevision, actual: ProjectRevision)
+    case defaultKernelNotConfigured(architecture: RuntimeArchitecture)
     case missingContainer(service: String)
     case invalidHealthcheck(service: String, detail: String)
     case successfulExitStatusUnavailable(service: String)
@@ -235,6 +236,8 @@ extension ComposeRuntimeError: LocalizedError {
         switch self {
         case .stalePreparedPlan(let expected, let actual):
             return "Compose plan is stale (prepared \(expected.rawValue), current \(actual.rawValue)); prepare and review it again."
+        case .defaultKernelNotConfigured(let architecture):
+            return "Default \(architecture.rawValue) kernel is not configured. Run `container system kernel set --recommended --arch \(architecture.rawValue)`, then retry `capsule compose up`."
         case .missingContainer(let service):
             return "No container exists for Compose service \(service)."
         case .invalidHealthcheck(let service, let detail):

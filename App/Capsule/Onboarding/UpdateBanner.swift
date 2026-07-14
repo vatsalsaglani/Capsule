@@ -33,10 +33,6 @@ struct UpdateBanner: View {
                 }
 
                 actionRow
-
-                Text("Capsule never installs anything for you — it downloads the installer and hands it off. You run it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -62,12 +58,14 @@ struct UpdateBanner: View {
             ProgressView("Checking…").controlSize(.small)
         case .downloading:
             ProgressView("Downloading…").controlSize(.small)
-        case .ready(let localURL, _):
-            Button(localURL.isFileURL ? "Reveal in Finder" : "Open Release Page") {
-                if localURL.isFileURL {
-                    NSWorkspace.shared.activateFileViewerSelecting([localURL])
-                } else {
-                    NSWorkspace.shared.open(localURL)
+        case .ready(let localURL, let humanInstructions):
+            InstallerHandoffView(
+                localURL: localURL,
+                humanInstructions: humanInstructions
+            ) {
+                Task {
+                    model.resetDownloadPhase()
+                    await model.refresh()
                 }
             }
         }

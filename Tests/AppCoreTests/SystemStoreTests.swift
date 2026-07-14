@@ -123,3 +123,18 @@ private func makeDiskUsage() -> SystemDiskUsage {
     store.dismissActionError()
     #expect(store.lastActionError == nil)
 }
+
+@MainActor
+@Test func retryingStartClearsAStaleActionError() async throws {
+    let fake = FakeContainerRuntime()
+    await fake.setError(ProbeError(message: "service unavailable"), for: .systemStart)
+    let store = SystemStore(runtime: fake)
+
+    await store.startRuntime()
+    #expect(store.lastActionError == "service unavailable")
+
+    await fake.clearError(for: .systemStart)
+    await store.startRuntime()
+
+    #expect(store.lastActionError == nil)
+}

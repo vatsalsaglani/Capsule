@@ -122,6 +122,9 @@ func prepareInstallerDownloadsThePkgAndReportsHonestInstructions() async {
     #expect(localURL == localFile)
     #expect(localURL.isFileURL)
     assertInstructionsNeverImplyAutoInstall(instructions)
+    #expect(instructions.localizedCaseInsensitiveContains("double-click"))
+    #expect(instructions.localizedCaseInsensitiveContains("Finder"))
+    #expect(instructions.localizedCaseInsensitiveContains("check again"))
 }
 
 @Test @MainActor
@@ -146,6 +149,9 @@ func prepareInstallerFallsBackToReleasePageWhenNoPkgAssetExists() async {
     #expect(localURL == releaseURL)
     #expect(!localURL.isFileURL)
     assertInstructionsNeverImplyAutoInstall(instructions)
+    #expect(instructions.localizedCaseInsensitiveContains("signed .pkg"))
+    #expect(instructions.localizedCaseInsensitiveContains("double-click"))
+    #expect(instructions.localizedCaseInsensitiveContains("check again"))
 }
 
 @Test @MainActor

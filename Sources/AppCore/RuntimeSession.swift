@@ -33,6 +33,10 @@ public final class RuntimeSession {
     public let containers: ContainerListStore
     public let menuBar: MenuBarStore
     public let composeSupervision: ComposeSupervisionStore
+    /// One session-wide icon cache lets every Images card share the same
+    /// in-flight work and durable disk entries without putting lookup policy
+    /// into SwiftUI.
+    public let imageIcons: ImageIconCache
 
     /// `nil` exactly when construction hit the `runtimeMissing` path — there
     /// is nothing to poll.
@@ -74,11 +78,13 @@ public final class RuntimeSession {
     public init(
         makeRuntime: () throws -> any ContainerRuntime,
         projectStore: ProjectStore = ProjectStore(),
+        imageIcons: ImageIconCache = ImageIconCache(),
         pollInterval: Duration = .seconds(2),
         idleInterval: Duration = .seconds(6),
         unavailableInterval: Duration = .seconds(5)
     ) {
         self.projectStore = projectStore
+        self.imageIcons = imageIcons
         let stateCoordinator = ProjectStateCoordinator(store: projectStore)
         self.stateCoordinator = stateCoordinator
         self.composeSupervision = ComposeSupervisionStore()

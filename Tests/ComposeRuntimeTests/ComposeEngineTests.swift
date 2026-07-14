@@ -217,6 +217,47 @@ private func source(_ yaml: String, directory: URL) -> ComposeSource {
     #expect(try store.loadProject(id: "demo").sourcePath == input.filePath)
 }
 
+@Test func upRejectsMissingDefaultKernelBeforePersistingOrMutatingResources() async throws {
+    let runtime = FakeContainerRuntime()
+    await runtime.setDefaultKernelReadiness(.notConfigured(for: .arm64))
+    let (store, root) = try temporaryStore()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let project = try await ComposeEngine(runtime: runtime, store: store).open(source("""
+    name: demo
+    services:
+      app: { image: alpine }
+    """, directory: root))
+    let prepared = try await project.prepareUp()
+    let callCountBeforeUp = await runtime.calls.count
+
+    do {
+        for try await _ in try await project.up(prepared) {}
+        Issue.record("expected compose up to reject a missing default kernel")
+    } catch let error as ComposeRuntimeError {
+        #expect(error == .defaultKernelNotConfigured(architecture: .arm64))
+    } catch {
+        Issue.record("unexpected error: \(error)")
+    }
+
+    let upCalls = Array((await runtime.calls).dropFirst(callCountBeforeUp))
+    #expect(upCalls.contains(.defaultKernelReadiness))
+    #expect(!upCalls.contains { call in
+        switch call {
+        case .createContainer, .startContainer, .pullImage, .buildImage,
+             .createVolume, .createNetwork:
+            true
+        default:
+            false
+        }
+    })
+    #expect(throws: Error.self) {
+        _ = try store.loadProject(id: "demo")
+    }
+    #expect(throws: Error.self) {
+        _ = try store.loadState(projectID: "demo")
+    }
+}
+
 @Test func driftUsesStoredStoppedDesiredState() async throws {
     let runtime = FakeContainerRuntime()
     let (store, root) = try temporaryStore()
