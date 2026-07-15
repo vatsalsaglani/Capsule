@@ -45,15 +45,15 @@ nav:
   - Home: index.md
   - Get started: getting-started.md
   - CLI reference: CLI.md
-  - Release preview: releases.md
 
-# Product planning, architecture, learnings, and spike records stay in the
-# repository as engineering sources of truth, but are not part of the public
-# user documentation site.
+# Release operations, product planning, architecture, learnings, and spike
+# records stay in the repository as maintainer sources of truth, but are not
+# part of the public user documentation site.
 exclude_docs: |
   ROADMAP.md
   learnings/
   plans/
+  releases.md
   spikes/
 
 plugins:
@@ -78,9 +78,6 @@ markdown_extensions:
 
 extra_css:
   - stylesheets/extra.css
-
-extra_javascript:
-  - javascripts/site.js
 
 extra:
   social:

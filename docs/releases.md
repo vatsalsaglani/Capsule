@@ -1,27 +1,10 @@
-# Branch-driven releases
+# Maintainer release guide
 
-Capsule releases are initiated only by a branch push. You do not create or push tags manually.
+This file is intentionally excluded from the public documentation site. Capsule
+releases are initiated only by a branch push; maintainers do not create or push
+tags manually.
 
-<div class="release-lab" data-release-branch>
-  <div class="release-lab__header">
-    <div>
-      <span class="capsule-kicker">RELEASE PREVIEW</span>
-      <h2>What will this branch publish?</h2>
-    </div>
-    <span class="release-lab__state" data-release-state>Pre-release</span>
-  </div>
-  <label for="release-branch">Branch name</label>
-  <input id="release-branch" data-release-input value="release/v0.1.0-beta" spellcheck="false" autocomplete="off">
-  <p class="release-lab__error" data-release-error hidden></p>
-  <dl>
-    <div><dt>Version</dt><dd data-release-version>0.1.0-beta</dd></div>
-    <div><dt>GitHub release</dt><dd data-release-tag>v0.1.0-beta</dd></div>
-    <div><dt>Classification</dt><dd data-release-kind>Pre-release</dd></div>
-    <div><dt>App artifact</dt><dd data-release-asset>Capsule-v0.1.0-beta.dmg</dd></div>
-  </dl>
-</div>
-
-## Publish
+## Publish a version
 
 Start from a commit that has already passed the `CI` workflow on `main`:
 
@@ -63,7 +46,3 @@ Published versions are immutable. If a branch changes after its version has been
 
 !!! info "GitHub still stores a tag"
     GitHub Releases are tag-backed. Capsule’s workflow creates that implementation-detail tag itself, so release authors only work with branches.
-
-## One-time Pages setting
-
-In the GitHub repository, choose **Settings → Pages → Build and deployment → Source: GitHub Actions**. The release workflow handles every subsequent documentation build and deployment.

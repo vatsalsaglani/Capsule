@@ -64,6 +64,14 @@ lets maintainers repair public presentation or accessibility without moving the
 tag or replacing app/CLI artifacts. Use an exact commit SHA, not a floating
 branch name, so the deployed documentation remains auditable.
 
+GitHub Pages serves generated HTML with `Cache-Control: max-age=600`. A browser
+or Pages edge can therefore continue showing the previous navigation or even a
+page removed by a successful deployment for up to ten minutes. A successful
+Actions deployment is not evidence of immediate cache expiry; verify the new
+artifact locally first, then use a cache-busting query for a fresh inspection
+or wait for the advertised TTL before treating stale presentation as a failed
+deployment.
+
 GitHub evaluates a job's `github-pages` environment protection against the
 workflow's triggering ref, not the source ref later checked out by
 `actions/checkout`. Capsule's Pages environment was initially restricted to
@@ -92,4 +100,5 @@ failed Pages deployment can be recovered without rebuilding or replacing the
 release artifacts. Repository environment policy is part of the release
 contract and must continue allowing `main` plus `release/*`. Post-release
 documentation-only corrections deploy from an exact reviewed source SHA while
-leaving the published tag and binary assets unchanged.
+leaving the published tag and binary assets unchanged. Public verification
+must account for GitHub Pages' ten-minute HTML cache window.
