@@ -15,12 +15,16 @@ theme:
     repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
-      scheme: capsule-light
+      scheme: default
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Use dark appearance
     - media: "(prefers-color-scheme: dark)"
-      scheme: capsule-dark
+      scheme: slate
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Use light appearance
@@ -42,12 +46,15 @@ nav:
   - Get started: getting-started.md
   - CLI reference: CLI.md
   - Release preview: releases.md
-  - Project:
-      - Roadmap: ROADMAP.md
-      - Product & architecture: plans/apple-container-manager-plan.md
-  - Engineering notes:
-      - Learnings: learnings/README.md
-      - Runtime spikes: spikes/README.md
+
+# Product planning, architecture, learnings, and spike records stay in the
+# repository as engineering sources of truth, but are not part of the public
+# user documentation site.
+exclude_docs: |
+  ROADMAP.md
+  learnings/
+  plans/
+  spikes/
 
 plugins:
   - search

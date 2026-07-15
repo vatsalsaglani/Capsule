@@ -7,6 +7,10 @@ on:
         description: "Published release branch (for example, release/v0.1.2-beta)"
         required: true
         type: string
+      documentation_ref:
+        description: "Optional reviewed source ref for a docs-only correction; defaults to the published tag"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -28,18 +32,22 @@ jobs:
         shell: bash
         env:
           RELEASE_BRANCH: ${{ inputs.release_branch }}
+          DOCUMENTATION_REF: ${{ inputs.documentation_ref }}
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_BRANCH" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
             echo "'$RELEASE_BRANCH' must be release/v<major>.<minor>.<patch>[-prerelease]." >&2
             exit 1
           fi
-          echo "tag=${RELEASE_BRANCH#release/}" >> "$GITHUB_OUTPUT"
+          release_tag="${RELEASE_BRANCH#release/}"
+          documentation_ref="${DOCUMENTATION_REF:-$release_tag}"
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "documentation_ref=$documentation_ref" >> "$GITHUB_OUTPUT"
 
-      - name: Check out released source
+      - name: Check out documentation source
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.release.outputs.tag }}
+          ref: ${{ steps.release.outputs.documentation_ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6

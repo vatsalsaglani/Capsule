@@ -57,6 +57,13 @@ has a docs-only manual recovery workflow: maintainers provide the familiar
 `release/v<semver>` branch name, while the workflow derives and checks out the
 workflow-owned tag internally before rebuilding and deploying Pages.
 
+The same recovery path also supports a reviewed documentation-only correction
+after publication. Its optional documentation ref may point at an exact commit
+from `main`; when omitted it still defaults to the immutable release tag. This
+lets maintainers repair public presentation or accessibility without moving the
+tag or replacing app/CLI artifacts. Use an exact commit SHA, not a floating
+branch name, so the deployed documentation remains auditable.
+
 GitHub evaluates a job's `github-pages` environment protection against the
 workflow's triggering ref, not the source ref later checked out by
 `actions/checkout`. Capsule's Pages environment was initially restricted to
@@ -83,4 +90,6 @@ GitHub pre-release. Published tags are immutable, release artifacts carry the
 same full version, and the docs rebuild only after artifact publication. A
 failed Pages deployment can be recovered without rebuilding or replacing the
 release artifacts. Repository environment policy is part of the release
-contract and must continue allowing `main` plus `release/*`.
+contract and must continue allowing `main` plus `release/*`. Post-release
+documentation-only corrections deploy from an exact reviewed source SHA while
+leaving the published tag and binary assets unchanged.
