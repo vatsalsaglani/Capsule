@@ -42,6 +42,21 @@ and one repository setting selecting **GitHub Actions** as the Pages source.
 Capsule builds docs in ordinary `main` CI and deploys the docs from the newly
 released tag, so the public site describes the release that was just shipped.
 
+`actions/setup-python@v6` does not discover Capsule's nonstandard
+`requirements-docs.txt` filename when `cache: pip` is enabled. Without an
+explicit `cache-dependency-path: requirements-docs.txt`, setup fails before the
+install step while reporting that neither `requirements.txt` nor
+`pyproject.toml` exists—even when `requirements-docs.txt` is present in the
+checked-out release. Every documentation job must name that cache dependency
+path explicitly.
+
+Re-running a failed Actions run keeps the original trigger SHA and its workflow
+definition, so a workflow fix on `main` cannot repair a documentation job that
+already failed after publishing an immutable release tag. Capsule therefore
+has a docs-only manual recovery workflow: maintainers provide the familiar
+`release/v<semver>` branch name, while the workflow derives and checks out the
+workflow-owned tag internally before rebuilding and deploying Pages.
+
 **Verification commands:**
 
 ```sh
@@ -54,4 +69,6 @@ scripts/package-alpha.sh v0.0.1 dist
 **Consequence:** release authors only create `release/v<semver>` branches from
 green `main` commits. Stable versions have no suffix; any accepted suffix is a
 GitHub pre-release. Published tags are immutable, release artifacts carry the
-same full version, and the docs rebuild only after artifact publication.
+same full version, and the docs rebuild only after artifact publication. A
+failed Pages deployment can be recovered without rebuilding or replacing the
+release artifacts.
