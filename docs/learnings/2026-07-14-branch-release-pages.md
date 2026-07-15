@@ -57,6 +57,17 @@ has a docs-only manual recovery workflow: maintainers provide the familiar
 `release/v<semver>` branch name, while the workflow derives and checks out the
 workflow-owned tag internally before rebuilding and deploying Pages.
 
+GitHub evaluates a job's `github-pages` environment protection against the
+workflow's triggering ref, not the source ref later checked out by
+`actions/checkout`. Capsule's Pages environment was initially restricted to
+`develop`, so a fully successful release from `release/v0.1.3-beta` built its
+documentation and was then rejected before deployment. The repository default
+branch and environment rules must agree with the release workflow: `main` is
+the default branch, while `github-pages` permits both `main` and the custom
+branch pattern `release/*`. GitHub's environment wildcards do not cross `/`;
+`release/*` is therefore the deliberate one-slash match for Capsule's
+`release/v<semver>` branches.
+
 **Verification commands:**
 
 ```sh
@@ -71,4 +82,5 @@ green `main` commits. Stable versions have no suffix; any accepted suffix is a
 GitHub pre-release. Published tags are immutable, release artifacts carry the
 same full version, and the docs rebuild only after artifact publication. A
 failed Pages deployment can be recovered without rebuilding or replacing the
-release artifacts.
+release artifacts. Repository environment policy is part of the release
+contract and must continue allowing `main` plus `release/*`.
